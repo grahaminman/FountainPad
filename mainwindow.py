@@ -276,6 +276,8 @@ class MainWindow(QMainWindow):
             self.act_toggle_preview.setChecked(checked)
         self._split_visible = bool(checked)
         self.preview.setVisible(self._split_visible)
+        # Wrap editor text when split so lines aren't clipped by the preview pane.
+        self.editor.set_word_wrap(self._split_visible)
         if self._split_visible:
             self._sync_previews(immediate=True)
 
@@ -389,6 +391,7 @@ class MainWindow(QMainWindow):
         self._split_visible = str(split).lower() in ("1", "true", "yes")
         self.act_toggle_preview.setChecked(self._split_visible)
         self.preview.setVisible(self._split_visible)
+        self.editor.set_word_wrap(self._split_visible)
 
     def _save_settings(self) -> None:
         s = QSettings(APP_ORG, APP_NAME)

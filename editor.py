@@ -13,6 +13,7 @@ from PySide6.QtGui import (
     QTextCharFormat,
     QTextDocument,
     QTextFormat,
+    QTextOption,
 )
 from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
 
@@ -198,7 +199,8 @@ class FountainEditor(QPlainTextEdit):
         font.setStyleHint(QFont.Monospace)
         font.setPointSize(12)
         self.setFont(font)
-        self.setLineWrapMode(QPlainTextEdit.NoWrap)
+        # Default: no wrap (full-width editor). Split preview enables wrap.
+        self.set_word_wrap(False)
         self.setTabStopDistance(self.fontMetrics().horizontalAdvance(" ") * 4)
 
         self._line_number_area = LineNumberArea(self)
@@ -214,6 +216,14 @@ class FountainEditor(QPlainTextEdit):
 
     def highlighter(self) -> FountainHighlighter:
         return self._highlighter
+
+    def set_word_wrap(self, enabled: bool) -> None:
+        """Wrap long lines to the editor width (useful in split view)."""
+        if enabled:
+            self.setLineWrapMode(QPlainTextEdit.WidgetWidth)
+            self.setWordWrapMode(QTextOption.WrapAtWordBoundaryOrAnywhere)
+        else:
+            self.setLineWrapMode(QPlainTextEdit.NoWrap)
 
     def apply_theme(self, dark: bool) -> None:
         self._dark = dark
