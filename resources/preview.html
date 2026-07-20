@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FountainPad Preview</title>
+  <script src="fountain.js"></script>
+  <link id="theme-css" rel="stylesheet" href="styles/preview-light.css" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--page-bg, #e8e4dc);
+      color: var(--text, #111);
+      font-family: "Courier Prime", "Courier New", Courier, monospace;
+    }
+    #wrap {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 28px 24px 64px;
+    }
+    #script {
+      background: var(--paper, #fffef8);
+      color: var(--text, #111);
+      box-shadow: 0 2px 14px rgba(0,0,0,0.12);
+      padding: 48px 64px 64px;
+      min-height: 70vh;
+      line-height: 1.15;
+      font-size: 14px;
+    }
+    #script h1 {
+      text-align: center;
+      text-transform: uppercase;
+      font-size: 1.15em;
+      margin: 0 0 0.5em;
+      font-weight: bold;
+    }
+    #script .credit,
+    #script .authors,
+    #script .source,
+    #script .notes,
+    #script .draft-date,
+    #script .date,
+    #script .contact,
+    #script .copyright {
+      text-align: center;
+      margin: 0.15em 0;
+    }
+    #script h3 {
+      text-align: left;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin: 1.6em 0 1em;
+      font-size: 1em;
+    }
+    #script h2 {
+      text-align: right;
+      text-transform: uppercase;
+      margin: 1.2em 0;
+      font-size: 1em;
+      font-weight: bold;
+    }
+    #script h4 {
+      width: 60%;
+      margin: 1.1em auto 0;
+      text-align: center;
+      text-transform: uppercase;
+      font-weight: bold;
+      font-size: 1em;
+    }
+    #script .dialogue {
+      width: 60%;
+      margin: 0 auto 0.2em;
+    }
+    #script .dialogue p {
+      margin: 0 auto;
+      width: 92%;
+      text-align: left;
+    }
+    #script .parenthetical {
+      width: 70%;
+      margin: 0 auto;
+      text-align: center;
+      font-style: italic;
+    }
+    #script p {
+      margin: 0 0 0.85em;
+      text-align: left;
+    }
+    #script .centered {
+      text-align: center;
+    }
+    #script .section {
+      color: var(--muted, #666);
+      font-weight: bold;
+      margin-top: 1.4em;
+    }
+    #script .synopsis {
+      color: var(--muted, #666);
+      font-style: italic;
+    }
+    #script .dual-dialogue {
+      display: flex;
+      gap: 1.5rem;
+      width: 90%;
+      margin: 1em auto;
+    }
+    #script .dual-dialogue .dialogue {
+      width: 48%;
+      margin: 0;
+    }
+    #script hr {
+      border: none;
+      border-top: 1px dashed var(--muted, #999);
+      margin: 2em 0;
+    }
+    #empty {
+      text-align: center;
+      color: var(--muted, #777);
+      padding: 4rem 1rem;
+      font-family: system-ui, sans-serif;
+    }
+  </style>
+</head>
+<body class="theme-light">
+  <div id="wrap">
+    <div id="script"><div id="empty">Start writing your screenplay…</div></div>
+  </div>
+  <script>
+    function setTheme(theme) {
+      var t = (theme === 'dark') ? 'dark' : 'light';
+      document.body.className = 'theme-' + t;
+      var link = document.getElementById('theme-css');
+      if (link) {
+        link.href = 'styles/preview-' + t + '.css';
+      }
+    }
+
+    function escapeForHtml(s) {
+      // fountain.js already emits HTML tokens; we pass raw fountain source to parser
+      return s;
+    }
+
+    function renderFountain(source) {
+      var root = document.getElementById('script');
+      if (!source || !String(source).trim()) {
+        root.innerHTML = '<div id="empty">Start writing your screenplay…</div>';
+        return;
+      }
+      try {
+        var result = fountain.parse(String(source));
+        var title = (result.html && result.html.title_page) ? result.html.title_page : '';
+        var body = (result.html && result.html.script) ? result.html.script : '';
+        root.innerHTML = title + body;
+      } catch (err) {
+        var msg = String(err);
+        root.innerHTML = '<div id="empty">Preview error (see console)</div>';
+        console.error(msg);
+      }
+    }
+
+    // Initial empty state
+    renderFountain('');
+  </script>
+</body>
+</html>

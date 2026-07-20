@@ -1,0 +1,15 @@
+:root {
+  --page-bg: #1a1d24;
+  --paper: #242830;
+  --text: #e8e6e1;
+  --muted: #9aa0a8;
+}
+
+body.theme-dark {
+  background: var(--page-bg);
+  color: var(--text);
+}
+
+body.theme-dark #script {
+  box-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
+}
