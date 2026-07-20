@@ -207,10 +207,9 @@ class FountainEditor(QPlainTextEdit):
         self.cursorPositionChanged.connect(self.highlight_current_line)
         self.textChanged.connect(self.contentChanged.emit)
 
+        self._dark = False
         self._highlighter = FountainHighlighter(self.document(), dark=False)
         self.update_line_number_area_width(0)
-        self.highlight_current_line()
-        self._dark = False
         self.apply_theme(False)
 
     def highlighter(self) -> FountainHighlighter:
