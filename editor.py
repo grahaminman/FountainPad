@@ -386,3 +386,95 @@ class FountainEditor(QPlainTextEdit):
                 return text
             block = block.previous()
         return ""
+
+    def list_cards(self) -> list[tuple[int, str, str, str]]:
+        """
+        Parse Fountain for [[card: Type]] blocks and link to nearest scene.
+        Returns: [(block_number, card_type, card_text, scene_heading), ...]
+        
+        Handles:
+          - Nested brackets: [[card: Goal (Midpoint)]]
+          - Malformed cards: [[card:Goal]] (no space after colon)
+          - Valid card types: Goal, Conflict, Turn, or custom
+        """
+        cards: list[tuple[int, str, str, str]] = []
+        scene_heading = "Untitled Scene"
+        block = self.document().firstBlock()
+        while block.isValid():
+            text = block.text().strip()
+            if self.is_scene_heading(text):
+                scene_heading = text
+            elif text.startswith("[[card:") and text.endswith("]]"):
+                # Extract inner text: [[card: Goal (Midpoint)]] → "Goal (Midpoint)"
+                inner = text[7:-2].strip()
+                card_type = "Card"
+                card_text = inner
+                
+                # Split on first colon or space (handle malformed cards).
+                if ":" in inner:
+                    parts = inner.split(":", 1)
+                    card_type = parts[0].strip()
+                    card_text = parts[1].strip()
+                elif " " in inner:
+                    parts = inner.split(" ", 1)
+                    card_type = parts[0]
+                    card_text = parts[1].strip()
+                
+                # Validate card type (Goal/Conflict/Turn or custom).
+                valid_types = {"Goal", "Conflict", "Turn"}
+                if card_type not in valid_types:
+                    card_type = "Card"
+                
+                # Check if the next line is indented (card content).
+                next_block = block.next()
+                if next_block.isValid():
+                    next_text = next_block.text().strip()
+                    if next_text and not self.is_scene_heading(next_text) and not next_text.startswith("[[card:"):
+                        card_text = f"{card_text} {next_text}" if card_text else next_text
+                
+                cards.append((block.blockNumber(), card_type, card_text, scene_heading))
+            block = block.next()
+        return cards
+
+    def list_beats(self) -> list[tuple[int, str, str, str]]:
+        """
+        Parse Fountain for [[beat: Type]] blocks and link to nearest scene.
+        Returns: [(block_number, beat_type, beat_text, scene_heading), ...]
+        
+        Handles:
+          - Nested brackets: [[beat: Act 1 Climax (Midpoint)]]
+          - Malformed beats: [[beat:Act1]] (no space after colon)
+        """
+        beats: list[tuple[int, str, str, str]] = []
+        scene_heading = "Untitled Scene"
+        block = self.document().firstBlock()
+        while block.isValid():
+            text = block.text().strip()
+            if self.is_scene_heading(text):
+                scene_heading = text
+            elif text.startswith("[[beat:") and text.endswith("]]"):
+                # Extract inner text: [[beat: Act 1 Climax]] → "Act 1 Climax"
+                inner = text[7:-2].strip()
+                beat_type = "Beat"
+                beat_text = inner
+                
+                # Split on first colon or space (handle malformed beats).
+                if ":" in inner:
+                    parts = inner.split(":", 1)
+                    beat_type = parts[0].strip()
+                    beat_text = parts[1].strip()
+                elif " " in inner:
+                    parts = inner.split(" ", 1)
+                    beat_type = parts[0]
+                    beat_text = parts[1].strip()
+                
+                # Check if the next line is indented (beat content).
+                next_block = block.next()
+                if next_block.isValid():
+                    next_text = next_block.text().strip()
+                    if next_text and not self.is_scene_heading(next_text) and not next_text.startswith("[[beat:"):
+                        beat_text = f"{beat_text} {next_text}" if beat_text else next_text
+                
+                beats.append((block.blockNumber(), beat_type, beat_text, scene_heading))
+            block = block.next()
+        return beats

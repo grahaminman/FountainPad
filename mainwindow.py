@@ -59,6 +59,8 @@ from PySide6.QtWidgets import (
 
 from editor import FountainEditor
 from navigator import SceneNavigator
+from cardnavigator import CardNavigator
+from beatboard import BeatBoard
 from preview import FountainPreview, PreviewWindow
 
 APP_ORG = "FountainPad"
@@ -95,6 +97,7 @@ END OF SAMPLE
 
 # Fallback widths when a splitter pane was collapsed to 0 and we show it again.
 _DEFAULT_NAV_WIDTH = 240
+_DEFAULT_CARD_NAV_WIDTH = 240
 _DEFAULT_SPLIT_PREVIEW_WIDTH = 520
 _DEFAULT_EDITOR_WIDTH = 640
 
@@ -112,6 +115,7 @@ class MainWindow(QMainWindow):
         self._dark = False
         self._split_visible = True
         self._nav_visible = True
+        self._cards_visible = True
         self._detached: Optional[PreviewWindow] = None
         self._pdf_busy = False
         # Remember non-zero splitter sizes so hide→show does not leave a 0-width pane.
@@ -124,6 +128,7 @@ class MainWindow(QMainWindow):
         self.editor = FountainEditor()
         self.preview = FountainPreview()
         self.navigator = SceneNavigator()
+        self.card_navigator = CardNavigator()
 
         # Inner: editor | embedded preview
         self._editor_preview = QSplitter(Qt.Horizontal)
@@ -134,14 +139,19 @@ class MainWindow(QMainWindow):
         self._editor_preview.setChildrenCollapsible(False)
         self._editor_preview.setSizes(self._saved_editor_preview_sizes)
 
-        # Outer: navigator | (editor+preview)
+        # Outer: navigator | card_navigator | (editor+preview) | beat_board
         self.splitter = QSplitter(Qt.Horizontal)
         self.splitter.addWidget(self.navigator)
+        self.splitter.addWidget(self.card_navigator)
         self.splitter.addWidget(self._editor_preview)
+        self.splitter.addWidget(self.beat_board)
         self.splitter.setStretchFactor(0, 0)
-        self.splitter.setStretchFactor(1, 1)
+        self.splitter.setStretchFactor(1, 0)
+        self.splitter.setStretchFactor(2, 1)
+        self.splitter.setStretchFactor(3, 0)
         self.splitter.setChildrenCollapsible(False)
-        self.splitter.setSizes(self._saved_main_splitter_sizes)
+        self.splitter.setSizes([_DEFAULT_NAV_WIDTH, _DEFAULT_NAV_WIDTH, 1040, _DEFAULT_NAV_WIDTH])
+        self._saved_main_splitter_sizes = [_DEFAULT_NAV_WIDTH, _DEFAULT_NAV_WIDTH, 1040, _DEFAULT_NAV_WIDTH]
         self.setCentralWidget(self.splitter)
 
         self._scene_label = QLabel("Scene: —")
@@ -159,12 +169,23 @@ class MainWindow(QMainWindow):
         self.editor.contentChanged.connect(self._on_editor_changed)
         self.editor.cursorPositionChanged.connect(self._update_status)
         self.navigator.sceneActivated.connect(self._on_scene_activated)
+        self.card_navigator.cardActivated.connect(self._on_card_activated)
+        self.card_navigator.cardTemplateRequested.connect(self._insert_card_template)
 
         # Debounce navigator rebuild while typing (cheap, but no need every keystroke).
         self._nav_refresh = QTimer(self)
         self._nav_refresh.setSingleShot(True)
         self._nav_refresh.setInterval(250)
         self._nav_refresh.timeout.connect(self._refresh_navigator)
+        self._cards_refresh = QTimer(self)
+        self._cards_refresh.setSingleShot(True)
+        self._cards_refresh.setInterval(250)
+        self._cards_refresh.timeout.connect(self._refresh_card_navigator)
+
+        self._beats_refresh = QTimer(self)
+        self._beats_refresh.setSingleShot(True)
+        self._beats_refresh.setInterval(250)
+        self._beats_refresh.timeout.connect(self._refresh_beat_board)
 
         self._load_settings()
         self.new_file(initial=True)
@@ -172,6 +193,7 @@ class MainWindow(QMainWindow):
         self._update_status()
         self._apply_theme()
         self._refresh_navigator()
+        self._refresh_card_navigator()
         self._update_preview_action_states()
 
     # --- UI construction -------------------------------------------------
@@ -211,12 +233,31 @@ class MainWindow(QMainWindow):
         self.act_quit.setStatusTip("Quit FountainPad")
         self.act_quit.triggered.connect(self.close)
 
+        self.act_open_project = QAction("Open Project Folder…", self)
+        self.act_open_project.setShortcut(QKeySequence("Ctrl+Shift+O"))
+        self.act_open_project.setStatusTip("Open a project folder (Screenwriting OS structure)")
+        self.act_open_project.triggered.connect(self.open_project)
+
         self.act_toggle_nav = QAction("Show Scene Navigator", self)
         self.act_toggle_nav.setCheckable(True)
         self.act_toggle_nav.setChecked(True)
         self.act_toggle_nav.setShortcut(QKeySequence("Ctrl+\\"))
         self.act_toggle_nav.setStatusTip("Show or hide the scene list")
         self.act_toggle_nav.triggered.connect(self.toggle_navigator)
+
+        self.act_toggle_cards = QAction("Show Index Cards", self)
+        self.act_toggle_cards.setCheckable(True)
+        self.act_toggle_cards.setChecked(True)
+        self.act_toggle_cards.setShortcut(QKeySequence("Ctrl+Shift+C"))
+        self.act_toggle_cards.setStatusTip("Show or hide the index cards")
+        self.act_toggle_cards.triggered.connect(self.toggle_card_navigator)
+
+        self.act_toggle_beats = QAction("Show Beat Board", self)
+        self.act_toggle_beats.setCheckable(True)
+        self.act_toggle_beats.setChecked(True)
+        self.act_toggle_beats.setShortcut(QKeySequence("Ctrl+Shift+B"))
+        self.act_toggle_beats.setStatusTip("Show or hide the beat board")
+        self.act_toggle_beats.triggered.connect(self.toggle_beat_board)
 
         # Embedded preview only — independent of detached window.
         self.act_toggle_preview = QAction("Show Split Preview", self)
@@ -263,10 +304,14 @@ class MainWindow(QMainWindow):
         file_menu.addSeparator()
         file_menu.addAction(self.act_export_pdf)
         file_menu.addSeparator()
+        file_menu.addAction(self.act_open_project)
+        file_menu.addSeparator()
         file_menu.addAction(self.act_quit)
 
         view_menu = self.menuBar().addMenu("&View")
         view_menu.addAction(self.act_toggle_nav)
+        view_menu.addAction(self.act_toggle_cards)
+        view_menu.addAction(self.act_toggle_beats)
         view_menu.addSeparator()
         view_menu.addAction(self.act_toggle_preview)
         view_menu.addAction(self.act_detach)
@@ -288,6 +333,7 @@ class MainWindow(QMainWindow):
         tb.addAction(self.act_export_pdf)
         tb.addSeparator()
         tb.addAction(self.act_toggle_nav)
+        tb.addAction(self.act_toggle_cards)
         tb.addAction(self.act_toggle_preview)
         tb.addAction(self.act_detach)
         tb.addAction(self.act_reattach)
@@ -345,6 +391,71 @@ class MainWindow(QMainWindow):
         self._update_status()
         self.statusBar().showMessage("Closed", 2000)
 
+    def open_project(self) -> None:
+        """Open a project folder and auto-load script.fountain if it exists.
+        
+        Auto-creates missing Screenwriting OS files:
+          - canon.md
+          - beats.md
+          - cards.md
+        """
+        if not self._maybe_save():
+            return
+        path = QFileDialog.getExistingDirectory(
+            self,
+            "Open Project Folder",
+            str(self._path.parent if self._path else Path.home()),
+        )
+        if not path:
+            return
+        project_dir = Path(path)
+        
+        # Auto-create missing Screenwriting OS files.
+        missing_files = []
+        for name, template in [
+            ("canon.md", "# Canon\n\nStory world, rules, lore."),
+            ("beats.md", "# Beats\n\nMajor plot points."),
+            ("cards.md", "# Index Cards\n\n[[card: Goal]]\n[[card: Conflict]]\n[[card: Turn]]"),
+        ]:
+            file = project_dir / name
+            if not file.exists():
+                try:
+                    file.write_text(template, encoding="utf-8")
+                    missing_files.append(name)
+                except OSError as exc:
+                    QMessageBox.warning(
+                        self,
+                        "File creation failed",
+                        f"Could not create {name}:\n{exc}",
+                    )
+        
+        fountain_file = project_dir / "script.fountain"
+        if fountain_file.exists():
+            self._open_fountain_file(fountain_file)
+        else:
+            msg = f"Project folder opened: {project_dir.name}"
+            if missing_files:
+                msg += f"\nAuto-created: {', '.join(missing_files)}"
+            QMessageBox.information(self, "Project Opened", msg)
+
+    def _open_fountain_file(self, path: Path) -> None:
+        """Open a .fountain file and update UI."""
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            QMessageBox.critical(self, "Open failed", str(exc))
+            return
+        self.editor.blockSignals(True)
+        self.editor.setPlainText(text)
+        self.editor.blockSignals(False)
+        self._path = path
+        self._dirty = False
+        self._sync_previews(immediate=True)
+        self._refresh_navigator()
+        self._refresh_card_navigator()
+        self._update_title()
+        self._update_status()
+
     def open_file(self) -> None:
         if not self._maybe_save():
             return
@@ -356,21 +467,7 @@ class MainWindow(QMainWindow):
         )
         if not path:
             return
-        p = Path(path)
-        try:
-            text = p.read_text(encoding="utf-8")
-        except OSError as exc:
-            QMessageBox.critical(self, "Open failed", str(exc))
-            return
-        self.editor.blockSignals(True)
-        self.editor.setPlainText(text)
-        self.editor.blockSignals(False)
-        self._path = p
-        self._dirty = False
-        self._sync_previews(immediate=True)
-        self._refresh_navigator()
-        self._update_title()
-        self._update_status()
+        self._open_fountain_file(Path(path))
 
     def save_file(self) -> bool:
         if self._path is None:
@@ -563,6 +660,8 @@ class MainWindow(QMainWindow):
         self._sync_previews(immediate=False)
         self._update_status()
         self._nav_refresh.start()
+        self._cards_refresh.start()
+        self._beats_refresh.start()
 
     def _sync_previews(self, immediate: bool = False) -> None:
         """
@@ -583,7 +682,31 @@ class MainWindow(QMainWindow):
         block_no = self.editor.textCursor().blockNumber()
         self.navigator.highlight_block(block_no)
 
+    def _refresh_card_navigator(self) -> None:
+        cards = self.editor.list_cards()
+        self.card_navigator.set_cards(cards)
+        block_no = self.editor.textCursor().blockNumber()
+        # Highlight the card nearest to the cursor
+        if cards:
+            target_block = -1
+            for block_number, _, _, _ in cards:
+                if block_number <= block_no:
+                    target_block = block_number
+                else:
+                    break
+            if target_block >= 0:
+                for row in range(self.card_navigator._list.count()):
+                    item = self.card_navigator._list.item(row)
+                    if item and int(item.data(Qt.UserRole)) == target_block:
+                        self.card_navigator._updating = True
+                        self.card_navigator._list.setCurrentRow(row)
+                        self.card_navigator._updating = False
+
     def _on_scene_activated(self, block_number: int) -> None:
+        self.editor.goto_block(block_number)
+        self._update_status()
+
+    def _on_card_activated(self, block_number: int) -> None:
         self.editor.goto_block(block_number)
         self._update_status()
 
@@ -600,6 +723,20 @@ class MainWindow(QMainWindow):
         else:
             self._remember_main_splitter_sizes()
             self.navigator.setVisible(False)
+
+    def toggle_card_navigator(self, checked: Optional[bool] = None) -> None:
+        if checked is None:
+            checked = self.act_toggle_cards.isChecked()
+        else:
+            self.act_toggle_cards.setChecked(checked)
+        self._cards_visible = bool(checked)
+        if self._cards_visible:
+            self.card_navigator.setVisible(True)
+            self._ensure_main_splitter_sizes()
+            self._refresh_card_navigator()
+        else:
+            self._remember_main_splitter_sizes()
+            self.card_navigator.setVisible(False)
 
     def toggle_split_preview(self, checked: Optional[bool] = None) -> None:
         """
@@ -716,17 +853,17 @@ class MainWindow(QMainWindow):
 
     def _remember_main_splitter_sizes(self) -> None:
         sizes = self.splitter.sizes()
-        if len(sizes) >= 2 and sizes[0] > 40:
+        if len(sizes) >= 3 and sizes[0] > 40 and sizes[1] > 40:
             self._saved_main_splitter_sizes = list(sizes)
 
     def _ensure_main_splitter_sizes(self) -> None:
         sizes = self.splitter.sizes()
-        if len(sizes) < 2 or sizes[0] < 40:
+        if len(sizes) < 3 or sizes[0] < 40 or sizes[1] < 40:
             saved = self._saved_main_splitter_sizes
-            if len(saved) >= 2 and saved[0] >= 40:
+            if len(saved) >= 3 and saved[0] >= 40 and saved[1] >= 40:
                 self.splitter.setSizes(saved)
             else:
-                self.splitter.setSizes([_DEFAULT_NAV_WIDTH, 1040])
+                self.splitter.setSizes([_DEFAULT_NAV_WIDTH, _DEFAULT_NAV_WIDTH, 1040])
 
     def toggle_dark_mode(self, checked: Optional[bool] = None) -> None:
         if checked is None:
@@ -748,6 +885,7 @@ class MainWindow(QMainWindow):
         theme = "dark" if self._dark else "light"
         self.editor.apply_theme(self._dark)
         self.navigator.apply_theme(self._dark)
+        self.card_navigator.apply_theme(self._dark)
         self.preview.set_theme(theme)
         if self._detached is not None:
             self._detached.preview.set_theme(theme)
@@ -975,14 +1113,18 @@ class MainWindow(QMainWindow):
         self._nav_visible = str(nav).lower() in ("1", "true", "yes")
         self.act_toggle_nav.setChecked(self._nav_visible)
         self.navigator.setVisible(self._nav_visible)
-        if self._nav_visible:
+        cards = s.value("cardsVisible", True)
+        self._cards_visible = str(cards).lower() in ("1", "true", "yes")
+        self.act_toggle_cards.setChecked(self._cards_visible)
+        self.card_navigator.setVisible(self._cards_visible)
+        if self._nav_visible or self._cards_visible:
             self._ensure_main_splitter_sizes()
 
     def _save_settings(self) -> None:
         # Capture live sizes while panes are visible.
         if self._split_visible:
             self._remember_editor_preview_sizes()
-        if self._nav_visible:
+        if self._nav_visible or self._cards_visible:
             self._remember_main_splitter_sizes()
         s = QSettings(APP_ORG, APP_NAME)
         s.setValue("geometry", self.saveGeometry())
@@ -992,6 +1134,7 @@ class MainWindow(QMainWindow):
         s.setValue("darkMode", self._dark)
         s.setValue("splitVisible", self._split_visible)
         s.setValue("navVisible", self._nav_visible)
+        s.setValue("cardsVisible", self._cards_visible)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         if not self._maybe_save():
