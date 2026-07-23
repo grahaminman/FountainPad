@@ -124,62 +124,120 @@ class SceneNavigator(QWidget):
         self._updating = False
 
     def apply_theme(self, dark: bool) -> None:
+        """
+        Theme navigator chrome.
+
+        macOS/Qt often ignores QListWidget::item:selected { color } from
+        stylesheets alone, which can leave black text on a dark system
+        highlight (unreadable). Set QPalette Highlight / HighlightedText
+        as well, and cover :active / :!active selected states.
+        """
+        from PySide6.QtGui import QColor, QPalette
+
+        pal = self._list.palette()
         if dark:
+            highlight = QColor("#094771")
+            highlighted_text = QColor("#ffffff")
+            base = QColor("#1e1e1e")
+            text = QColor("#dddddd")
             self.setStyleSheet(
                 """
                 QWidget#SceneNavigator {
                     background-color: #252526;
-                    color: #ddd;
+                    color: #dddddd;
                     border-right: 1px solid #3e3e42;
                 }
                 QLineEdit {
                     background: #1e1e1e;
-                    color: #ddd;
+                    color: #dddddd;
                     border: 1px solid #3e3e42;
                     border-radius: 4px;
                     padding: 4px 6px;
+                    selection-background-color: #094771;
+                    selection-color: #ffffff;
                 }
                 QListWidget {
                     background: #1e1e1e;
-                    color: #ddd;
+                    color: #dddddd;
                     border: 1px solid #3e3e42;
                     border-radius: 4px;
                     outline: none;
                 }
-                QListWidget::item { padding: 6px 8px; }
-                QListWidget::item:selected { background: #094771; color: #fff; }
-                QListWidget::item:hover { background: #2a2d2e; }
-                QLabel#SceneNavCount { color: #999; font-size: 11px; }
+                QListWidget::item {
+                    padding: 6px 8px;
+                    color: #dddddd;
+                    background: transparent;
+                }
+                QListWidget::item:hover {
+                    background: #2a2d2e;
+                    color: #ffffff;
+                }
+                QListWidget::item:selected,
+                QListWidget::item:selected:active,
+                QListWidget::item:selected:!active {
+                    background: #094771;
+                    color: #ffffff;
+                }
+                QLabel#SceneNavCount { color: #999999; font-size: 11px; }
                 """
             )
         else:
+            # Light selection: pale blue bg + near-black text (never white-on-light
+            # or black-on-black from system palette).
+            highlight = QColor("#b3d7ff")
+            highlighted_text = QColor("#000000")
+            base = QColor("#ffffff")
+            text = QColor("#1a1a1a")
             self.setStyleSheet(
                 """
                 QWidget#SceneNavigator {
                     background-color: #f0f0f0;
-                    color: #222;
+                    color: #1a1a1a;
                     border-right: 1px solid #d0d0d0;
                 }
                 QLineEdit {
-                    background: #fff;
-                    color: #222;
-                    border: 1px solid #ccc;
+                    background: #ffffff;
+                    color: #1a1a1a;
+                    border: 1px solid #cccccc;
                     border-radius: 4px;
                     padding: 4px 6px;
+                    selection-background-color: #b3d7ff;
+                    selection-color: #000000;
                 }
                 QListWidget {
-                    background: #fff;
-                    color: #222;
-                    border: 1px solid #ccc;
+                    background: #ffffff;
+                    color: #1a1a1a;
+                    border: 1px solid #cccccc;
                     border-radius: 4px;
                     outline: none;
                 }
-                QListWidget::item { padding: 6px 8px; }
-                QListWidget::item:selected { background: #cde8ff; color: #111; }
-                QListWidget::item:hover { background: #eef6ff; }
-                QLabel#SceneNavCount { color: #666; font-size: 11px; }
+                QListWidget::item {
+                    padding: 6px 8px;
+                    color: #1a1a1a;
+                    background: transparent;
+                }
+                QListWidget::item:hover {
+                    background: #eef6ff;
+                    color: #000000;
+                }
+                QListWidget::item:selected,
+                QListWidget::item:selected:active,
+                QListWidget::item:selected:!active {
+                    background: #b3d7ff;
+                    color: #000000;
+                }
+                QLabel#SceneNavCount { color: #555555; font-size: 11px; }
                 """
             )
+
+        pal.setColor(QPalette.Base, base)
+        pal.setColor(QPalette.Text, text)
+        pal.setColor(QPalette.Highlight, highlight)
+        pal.setColor(QPalette.HighlightedText, highlighted_text)
+        # Inactive window should keep the same readable pair.
+        pal.setColor(QPalette.Inactive, QPalette.Highlight, highlight)
+        pal.setColor(QPalette.Inactive, QPalette.HighlightedText, highlighted_text)
+        self._list.setPalette(pal)
 
     def _rebuild_list(self) -> None:
         needle = self._filter.text().strip().lower()
