@@ -1,4 +1,31 @@
-"""Fountain text editor widget and syntax highlighter."""
+"""
+editor.py — Fountain source editor + syntax highlighter.
+
+Developer notes
+---------------
+FountainEditor
+  QPlainTextEdit configured for screenplay source:
+  - monospace font (Menlo → Consolas → Courier New fallback)
+  - gutter line numbers (LineNumberArea)
+  - current-line highlight
+  - contentChanged signal (used by MainWindow for dirty flag + preview sync)
+  - word wrap toggled by MainWindow when split preview is shown/hidden
+
+Scene helpers (used by navigator + status bar)
+  is_scene_heading(text)     INT/EXT/EST/I/E or forced ".HEADING"
+  list_scene_headings()      [(block_number, heading), ...] document order
+  goto_block(n)              jump + centre + focus
+  current_scene_heading()    walk upward from cursor to nearest heading
+
+FountainHighlighter
+  Line-oriented Fountain rules (not a full parser). Block state 1 = dialogue
+  context after a character cue until a blank line.
+  Shared regexes (re_scene, re_scene_dot, …) are public so navigator/status
+  can reuse the same definitions via editor.highlighter().
+
+Not responsible for
+  File I/O, menus, PDF, or preview HTML — those live in mainwindow/preview.
+"""
 
 from __future__ import annotations
 
@@ -19,7 +46,7 @@ from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
 
 
 class FountainHighlighter(QSyntaxHighlighter):
-    """Lightweight Fountain syntax highlighting."""
+    """Lightweight Fountain syntax highlighting (line rules + dialogue state)."""
 
     def __init__(self, document: QTextDocument, dark: bool = False) -> None:
         super().__init__(document)
@@ -68,6 +95,7 @@ class FountainHighlighter(QSyntaxHighlighter):
             self.fmt_boneyard = self._fmt("#9e9e9e", italic=True)
             self.fmt_page_break = self._fmt("#757575")
 
+        # Scene: INT./EXT./EST./I/E… or forced scene via leading "."
         self.re_scene = re.compile(
             r"^(?:\s*)((?:INT|EXT|EST|I/?E|INT\./EXT|INT/EXT)[\.\s].+)$",
             re.IGNORECASE,
@@ -95,12 +123,13 @@ class FountainHighlighter(QSyntaxHighlighter):
     def highlightBlock(self, text: str) -> None:
         stripped = text.strip()
         if not stripped:
-            # Still track previous block state for dialogue context
+            # Blank line ends dialogue context (state 1 → 0).
             prev = self.previousBlockState()
             self.setCurrentBlockState(1 if prev == 1 else 0)
+            # Actually blank should clear dialogue — Fountain dialogue stops at blank.
+            self.setCurrentBlockState(0)
             return
 
-        # Boneyard markers
         if self.re_boneyard_line.match(text):
             self.setFormat(0, len(text), self.fmt_boneyard)
             self.setCurrentBlockState(0)
@@ -139,7 +168,7 @@ class FountainHighlighter(QSyntaxHighlighter):
         if self.re_transition.match(text) or (
             text.lstrip().startswith(">") and not text.rstrip().endswith("<")
         ):
-            # avoid centered > text <
+            # Avoid centered text: > like this <
             if not (text.strip().startswith(">") and text.strip().endswith("<")):
                 self.setFormat(0, len(text), self.fmt_transition)
                 self.setCurrentBlockState(0)
@@ -147,22 +176,19 @@ class FountainHighlighter(QSyntaxHighlighter):
 
         if self.re_parenthetical.match(text):
             self.setFormat(0, len(text), self.fmt_parenthetical)
-            # stay in dialogue context if we were in one
             prev = self.previousBlockState()
             self.setCurrentBlockState(1 if prev == 1 else 0)
             return
 
-        # Character cue: all-caps line, not a scene/transition, previous blank-ish
+        # Character cue → next non-blank lines are dialogue (block state 1).
         prev_state = self.previousBlockState()
         if self.re_character.match(stripped) and not stripped.endswith(":"):
-            # Avoid matching action that happens to be caps if too long with lowercase — already caps-only
             if len(stripped) <= 40 and not stripped.startswith("[["):
                 self.setFormat(0, len(text), self.fmt_character)
-                self.setCurrentBlockState(1)  # next lines may be dialogue
+                self.setCurrentBlockState(1)
                 return
 
         if prev_state == 1:
-            # Dialogue block until blank line (blank handled above)
             self.setFormat(0, len(text), self.fmt_dialogue)
             self.setCurrentBlockState(1)
             return
@@ -171,6 +197,8 @@ class FountainHighlighter(QSyntaxHighlighter):
 
 
 class LineNumberArea(QWidget):
+    """Gutter painted by FountainEditor.line_number_area_paint_event."""
+
     def __init__(self, editor: "FountainEditor") -> None:
         super().__init__(editor)
         self.editor = editor
@@ -185,7 +213,7 @@ class LineNumberArea(QWidget):
 
 
 class FountainEditor(QPlainTextEdit):
-    """Monospace Fountain editor with line numbers."""
+    """Monospace Fountain editor with line numbers and scene helpers."""
 
     contentChanged = Signal()
 
@@ -199,7 +227,7 @@ class FountainEditor(QPlainTextEdit):
         font.setStyleHint(QFont.Monospace)
         font.setPointSize(12)
         self.setFont(font)
-        # Default: no wrap (full-width editor). Split preview enables wrap.
+        # Default: no wrap (full-width). MainWindow enables wrap in split view.
         self.set_word_wrap(False)
         self.setTabStopDistance(self.fontMetrics().horizontalAdvance(" ") * 4)
 
@@ -316,15 +344,45 @@ class FountainEditor(QPlainTextEdit):
         selection.cursor.clearSelection()
         self.setExtraSelections([selection])
 
+    def is_scene_heading(self, text: str) -> bool:
+        """True if a line is a Fountain scene heading (INT/EXT or forced .heading)."""
+        stripped = text.strip()
+        if not stripped:
+            return False
+        return bool(
+            self._highlighter.re_scene.match(stripped)
+            or self._highlighter.re_scene_dot.match(stripped)
+        )
+
+    def list_scene_headings(self) -> list[tuple[int, str]]:
+        """Return (block_number, heading_text) for every scene heading in order."""
+        scenes: list[tuple[int, str]] = []
+        block = self.document().firstBlock()
+        while block.isValid():
+            text = block.text()
+            if self.is_scene_heading(text):
+                scenes.append((block.blockNumber(), text.strip()))
+            block = block.next()
+        return scenes
+
+    def goto_block(self, block_number: int) -> None:
+        """Move cursor to the start of a document block and centre it in view."""
+        block = self.document().findBlockByNumber(block_number)
+        if not block.isValid():
+            return
+        cursor = self.textCursor()
+        cursor.setPosition(block.position())
+        self.setTextCursor(cursor)
+        self.centerCursor()
+        self.setFocus(Qt.OtherFocusReason)
+
     def current_scene_heading(self) -> str:
         """Walk upward from cursor to find nearest scene heading."""
         cursor = self.textCursor()
         block = cursor.block()
         while block.isValid():
             text = block.text().strip()
-            if self._highlighter.re_scene.match(text) or self._highlighter.re_scene_dot.match(
-                text
-            ):
+            if self.is_scene_heading(text):
                 return text
             block = block.previous()
         return ""

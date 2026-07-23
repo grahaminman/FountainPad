@@ -8,13 +8,15 @@ Write plain-text `.fountain` on the left, see a properly formatted screenplay pr
 
 - Fountain text editor with monospace font and line numbers
 - Syntax highlighting for scene headings, character cues, dialogue, parentheticals, transitions, sections, notes, and title-page keys
-- **Live split preview** (editor | formatted page) with 300ms debounce
-- **Detachable preview window**
-- New / Open / Save / Save As for `.fountain` files
+- **Scene navigator** — list of `INT.`/`EXT.` headings, filter, click to jump (View → Show Scene Navigator)
+- **Live split preview** (editor | formatted page) with 300ms debounce — show/hide independently
+- **Detach / reattach preview** — floating window plus in-window split; Reattach restores split
+- **Export PDF** from the formatted preview (File → Export PDF…)
+- New / Open / Close / Save / Save As for `.fountain` files
 - Unsaved-changes tracking and window title indicator
 - Light / Dark mode (editor + preview)
 - Status bar: current scene + character/word counts
-- Remembers window geometry, splitter sizes, and theme
+- Remembers window geometry, splitter sizes, navigator visibility, and theme
 - Offline-friendly: fountain.js is bundled — no network required at runtime
 
 ## Requirements
@@ -99,12 +101,27 @@ Exact package names vary by distro; PySide6 wheels bundle most of Qt.
 |----------|--------|
 | Ctrl/Cmd+N | New |
 | Ctrl/Cmd+O | Open |
+| Ctrl/Cmd+W | Close current file |
 | Ctrl/Cmd+S | Save |
 | Ctrl/Cmd+Shift+S | Save As |
-| Ctrl/Cmd+P | Toggle split preview |
+| Ctrl/Cmd+Shift+E | Export PDF |
+| Ctrl/Cmd+\\ | Toggle scene navigator |
+| Ctrl/Cmd+P | Toggle split preview (in-window) |
 | Ctrl/Cmd+Shift+P | Detach preview window |
+| Ctrl/Cmd+Alt+P | Reattach preview (close float + show split) |
 | Ctrl/Cmd+D | Toggle dark mode |
 | Ctrl/Cmd+Q | Quit |
+
+## Planning docs (product / later)
+
+Not required to run the app — captured for future work:
+
+| Doc | Topic |
+|---|---|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Developer map: modules, preview modes, file lifecycle |
+| [docs/DISTRIBUTION_NO_TERMINAL.md](docs/DISTRIBUTION_NO_TERMINAL.md) | Ship without Terminal (packaged app options) |
+| [docs/UPGRADE_BACKLOG.md](docs/UPGRADE_BACKLOG.md) | Cards, beat board, pipeline + forum-driven upgrades |
+| [docs/README.md](docs/README.md) | Index of planning docs |
 
 ## Project layout
 
@@ -112,8 +129,10 @@ Exact package names vary by distro; PySide6 wheels bundle most of Qt.
 FountainPad/
 ├── main.py              # Entry point
 ├── editor.py            # Editor + Fountain highlighter + line numbers
-├── preview.py           # QWebEngineView + fountain.js bridge
+├── navigator.py         # Scene navigator list + filter
+├── preview.py           # QWebEngineView + fountain.js bridge + PDF export
 ├── mainwindow.py        # Menus, splitter, files, theme, settings
+├── docs/                # Distribution + upgrade backlog (planning)
 ├── resources/
 │   ├── fountain.js      # Bundled parser (Matt Daly, MIT)
 │   ├── preview.html

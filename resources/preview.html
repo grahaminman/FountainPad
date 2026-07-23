@@ -4,6 +4,20 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>FountainPad Preview</title>
+  <!--
+    Developer notes (preview.html)
+    ------------------------------
+    Loaded by preview.py FountainPreview via QUrl.fromLocalFile.
+    Must stay offline: fountain.js + CSS are relative local assets.
+
+    JS API called from Python (runJavaScript):
+      setTheme('light' | 'dark')  — swaps body class + theme CSS href
+      renderFountain(source)      — fountain.parse → title_page + script HTML
+
+    fountain.js (Matt Daly) emits HTML fragments; we inject them into #script.
+    Do not pass user HTML through innerHTML except via the parser output.
+    PDF export prints this page (MainWindow forces light theme first).
+  -->
   <script src="fountain.js"></script>
   <link id="theme-css" rel="stylesheet" href="styles/preview-light.css" />
   <style>
@@ -46,6 +60,7 @@
       text-align: center;
       margin: 0.15em 0;
     }
+    /* fountain.js element mapping: h3=scene, h2=transition, h4=character */
     #script h3 {
       text-align: left;
       font-weight: bold;
@@ -134,11 +149,6 @@
       if (link) {
         link.href = 'styles/preview-' + t + '.css';
       }
-    }
-
-    function escapeForHtml(s) {
-      // fountain.js already emits HTML tokens; we pass raw fountain source to parser
-      return s;
     }
 
     function renderFountain(source) {
