@@ -408,18 +408,49 @@ class MainWindow(QMainWindow):
         if not self._dirty:
             return True
         name = self._path.name if self._path else "Untitled"
-        res = QMessageBox.question(
-            self,
-            "Unsaved changes",
-            f"Save changes to “{name}”?",
-            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
-            QMessageBox.Save,
+        # Build explicitly so we can force readable light-mode colours on macOS.
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Warning)
+        box.setWindowTitle("Unsaved changes")
+        box.setText(f"Save changes to “{name}”?")
+        box.setInformativeText("Your changes will be lost if you don't save them.")
+        box.setStandardButtons(
+            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel
         )
+        box.setDefaultButton(QMessageBox.Save)
+        self._style_message_box(box)
+        res = box.exec()
         if res == QMessageBox.Cancel:
             return False
         if res == QMessageBox.Save:
             return self.save_file()
         return True
+
+    def _style_message_box(self, box: QMessageBox) -> None:
+        """Ensure dialog body + buttons stay readable in the active theme."""
+        from PySide6.QtGui import QColor, QPalette
+
+        pal = box.palette()
+        if self._dark:
+            bg, fg = QColor("#2d2d30"), QColor("#dddddd")
+            btn_bg, btn_fg = QColor("#3e3e42"), QColor("#ffffff")
+        else:
+            bg, fg = QColor("#f5f5f5"), QColor("#000000")
+            btn_bg, btn_fg = QColor("#ffffff"), QColor("#000000")
+        for group in (QPalette.Active, QPalette.Inactive, QPalette.Disabled):
+            pal.setColor(group, QPalette.Window, bg)
+            pal.setColor(group, QPalette.WindowText, fg)
+            pal.setColor(group, QPalette.Text, fg)
+            pal.setColor(group, QPalette.Button, btn_bg)
+            pal.setColor(group, QPalette.ButtonText, btn_fg)
+            pal.setColor(group, QPalette.Base, bg)
+        box.setPalette(pal)
+        # Also paint child labels (message text lives in QLabel children).
+        for label in box.findChildren(QLabel):
+            label.setPalette(pal)
+            label.setStyleSheet(
+                f"color: {'#dddddd' if self._dark else '#000000'}; background: transparent;"
+            )
 
     # --- PDF export ------------------------------------------------------
     def export_pdf(self) -> None:
@@ -821,11 +852,40 @@ class MainWindow(QMainWindow):
                     color: #333333;
                     background: transparent;
                 }
+                /* Save / discard / error dialogs — force black text on light chrome.
+                   QMessageBox text often inherits a light WindowText on macOS. */
                 QMessageBox {
-                    background: #f3f3f3;
-                    color: #1a1a1a;
+                    background-color: #f5f5f5;
+                    color: #000000;
                 }
-                QMessageBox QLabel { color: #1a1a1a; }
+                QMessageBox QLabel {
+                    color: #000000;
+                    background: transparent;
+                }
+                QMessageBox QPushButton {
+                    color: #000000;
+                    background-color: #ffffff;
+                    border: 1px solid #b0b0b0;
+                    border-radius: 4px;
+                    padding: 4px 14px;
+                    min-width: 64px;
+                }
+                QMessageBox QPushButton:hover {
+                    background-color: #e8e8e8;
+                    color: #000000;
+                }
+                QMessageBox QPushButton:default {
+                    background-color: #dceeff;
+                    border: 1px solid #6aa9e8;
+                    color: #000000;
+                }
+                QDialog {
+                    background-color: #f5f5f5;
+                    color: #000000;
+                }
+                QDialog QLabel {
+                    color: #000000;
+                }
                 """
             )
 
