@@ -156,12 +156,16 @@ class FountainPreview(QWidget):
         callback(ok: bool, path: str) is invoked when printing finishes.
         Caller should force light theme before print if desired (MainWindow does).
         """
-        layout = page_layout or QPageLayout(
-            QPageSize(QPageSize.Letter),
-            QPageLayout.Portrait,
-            QMarginsF(0.5, 0.5, 0.5, 0.5),
-            QPageLayout.Inch,
-        )
+        # PySide6 requires margins in the QPageLayout(page, orientation, …) form.
+        if page_layout is not None and page_layout.isValid():
+            layout = page_layout
+        else:
+            layout = QPageLayout(
+                QPageSize(QPageSize.Letter),
+                QPageLayout.Portrait,
+                QMarginsF(0.5, 0.5, 0.5, 0.5),
+                QPageLayout.Inch,
+            )
 
         def _finished(*args) -> None:
             # Qt emits pdfPrintingFinished(filePath: str, success: bool)

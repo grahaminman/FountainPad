@@ -177,7 +177,24 @@ def main() -> int:
         if w.preview._ready:
             w.preview.set_theme("light")
             w.preview.set_fountain_text(DEFAULT_FOUNTAIN, immediate=True)
-            w.preview.print_to_pdf(str(pdf_path), _cb)
+            # Same layout shape as File → Export PDF (must include margins).
+            from PySide6.QtCore import QMarginsF
+            from PySide6.QtGui import QPageLayout, QPageSize
+
+            layout = QPageLayout(
+                QPageSize(QPageSize.Letter),
+                QPageLayout.Portrait,
+                QMarginsF(0.5, 0.5, 0.5, 0.5),
+                QPageLayout.Inch,
+            )
+            # Bare (size, orientation) must fail on this PySide — guards regression.
+            try:
+                QPageLayout(QPageSize(QPageSize.Letter), QPageLayout.Portrait)
+                bare_ok = True
+            except TypeError:
+                bare_ok = False
+            assert bare_ok is False, "expected bare QPageLayout to TypeError"
+            w.preview.print_to_pdf(str(pdf_path), _cb, layout)
             loop2 = QEventLoop()
             _QT.singleShot(4000, loop2.quit)
 

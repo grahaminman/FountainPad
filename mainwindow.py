@@ -44,7 +44,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import QByteArray, QSettings, Qt, QTimer
+from PySide6.QtCore import QByteArray, QMarginsF, QSettings, Qt, QTimer
 from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QPageLayout, QPageSize
 from PySide6.QtWidgets import (
     QApplication,
@@ -519,15 +519,33 @@ class MainWindow(QMainWindow):
         target.set_theme("light")
         target.set_fountain_text(text, immediate=True)
 
+        # QPageLayout requires margins in this PySide build — bare
+        # (pageSize, orientation) raises TypeError and kills export.
         layout = QPageLayout(
             QPageSize(QPageSize.Letter),
             QPageLayout.Portrait,
+            QMarginsF(0.5, 0.5, 0.5, 0.5),
+            QPageLayout.Inch,
         )
+
+        def _run_print() -> None:
+            try:
+                target.print_to_pdf(str(out), _on_done, layout)
+            except Exception as exc:  # noqa: BLE001 — surface to user
+                self._pdf_busy = False
+                self.act_export_pdf.setEnabled(True)
+                theme = "dark" if self._dark else "light"
+                target.set_theme(theme)
+                target.set_fountain_text(text, immediate=True)
+                QMessageBox.critical(
+                    self,
+                    "PDF export failed",
+                    f"Could not start PDF export:\n{exc}",
+                )
+                self.statusBar().showMessage("PDF export failed", 4000)
+
         # Brief delay so WebEngine can paint after theme/content apply.
-        QTimer.singleShot(
-            350,
-            lambda: target.print_to_pdf(str(out), _on_done, layout),
-        )
+        QTimer.singleShot(500, _run_print)
 
     def _pdf_target_preview(self) -> Optional[FountainPreview]:
         """Pick a live preview widget for PDF rendering."""
