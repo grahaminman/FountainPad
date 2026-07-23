@@ -688,6 +688,14 @@ class MainWindow(QMainWindow):
         self._apply_theme()
 
     def _apply_theme(self) -> None:
+        """
+        Apply editor/preview themes and chrome stylesheets.
+
+        Light mode must set explicit dark text on menu bar, toolbar buttons,
+        and status labels. Without QToolButton/QMenuBar::item colours, macOS
+        (and some Qt styles) keep light/white glyphs on the light banner so
+        labels only read where they sit on a dark patch.
+        """
         theme = "dark" if self._dark else "light"
         self.editor.apply_theme(self._dark)
         self.navigator.apply_theme(self._dark)
@@ -703,27 +711,121 @@ class MainWindow(QMainWindow):
                 """
                 QMainWindow, QMenuBar, QMenu, QToolBar, QStatusBar, QSplitter {
                     background-color: #2d2d30;
-                    color: #ddd;
+                    color: #dddddd;
+                }
+                QMenuBar::item {
+                    color: #dddddd;
+                    background: transparent;
+                    padding: 4px 10px;
                 }
                 QMenuBar::item:selected, QMenu::item:selected {
                     background: #3e3e42;
+                    color: #ffffff;
+                }
+                QMenu {
+                    background-color: #2d2d30;
+                    color: #dddddd;
+                }
+                QMenu::item {
+                    color: #dddddd;
+                    padding: 4px 24px 4px 12px;
+                }
+                QToolBar {
+                    background-color: #2d2d30;
+                    border: none;
+                    spacing: 4px;
                 }
                 QToolBar QToolButton {
-                    color: #ddd;
+                    color: #dddddd;
+                    background: transparent;
                     padding: 4px 8px;
                 }
-                QStatusBar QLabel { color: #bbb; }
-                QMessageBox { background: #2d2d30; color: #ddd; }
+                QToolBar QToolButton:hover {
+                    background: #3e3e42;
+                    color: #ffffff;
+                }
+                QStatusBar {
+                    background-color: #2d2d30;
+                    color: #bbbbbb;
+                }
+                QStatusBar QLabel {
+                    color: #bbbbbb;
+                    background: transparent;
+                }
+                QMessageBox {
+                    background: #2d2d30;
+                    color: #dddddd;
+                }
+                QMessageBox QLabel { color: #dddddd; }
                 """
             )
         else:
+            # Light chrome: black/near-black text on light grey banners.
             app.setStyleSheet(
                 """
-                QMainWindow, QMenuBar, QMenu, QToolBar, QStatusBar {
+                QMainWindow, QSplitter {
                     background-color: #f3f3f3;
-                    color: #222;
+                    color: #1a1a1a;
                 }
-                QStatusBar QLabel { color: #444; }
+                QMenuBar {
+                    background-color: #f3f3f3;
+                    color: #1a1a1a;
+                }
+                QMenuBar::item {
+                    color: #1a1a1a;
+                    background: transparent;
+                    padding: 4px 10px;
+                }
+                QMenuBar::item:selected {
+                    background: #dcdcdc;
+                    color: #000000;
+                }
+                QMenu {
+                    background-color: #ffffff;
+                    color: #1a1a1a;
+                }
+                QMenu::item {
+                    color: #1a1a1a;
+                    padding: 4px 24px 4px 12px;
+                }
+                QMenu::item:selected {
+                    background: #cde8ff;
+                    color: #000000;
+                }
+                QToolBar {
+                    background-color: #f3f3f3;
+                    border: none;
+                    border-bottom: 1px solid #d0d0d0;
+                    spacing: 4px;
+                    color: #1a1a1a;
+                }
+                QToolBar QToolButton {
+                    color: #1a1a1a;
+                    background: transparent;
+                    padding: 4px 8px;
+                }
+                QToolBar QToolButton:hover {
+                    background: #e4e4e4;
+                    color: #000000;
+                }
+                QToolBar QToolButton:pressed {
+                    background: #d0d0d0;
+                    color: #000000;
+                }
+                QStatusBar {
+                    background-color: #f3f3f3;
+                    color: #333333;
+                    border-top: 1px solid #d0d0d0;
+                }
+                QStatusBar QLabel {
+                    color: #333333;
+                    background: transparent;
+                }
+                QMessageBox {
+                    background: #f3f3f3;
+                    color: #1a1a1a;
+                }
+                QMessageBox QLabel { color: #1a1a1a; }
                 """
             )
 
