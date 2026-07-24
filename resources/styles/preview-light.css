@@ -9,3 +9,10 @@ body.theme-light {
   background: var(--page-bg);
   color: var(--text);
 }
+
+/* Hide Fountain [[notes]] in print/PDF */
+@media print {
+  .note {
+    display: none !important;
+  }
+}

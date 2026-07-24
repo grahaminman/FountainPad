@@ -405,33 +405,48 @@ class FountainEditor(QPlainTextEdit):
             if self.is_scene_heading(text):
                 scene_heading = text
             elif text.startswith("[[card:") and text.endswith("]]"):
-                # Extract inner text: [[card: Goal (Midpoint)]] → "Goal (Midpoint)"
-                inner = text[7:-2].strip()
+                # Extract inner text: [[card: Goal]] → "Goal"
+                # [[card: Goal (Midpoint)]] → "Goal (Midpoint)"
+                inner = text[len("[[card:") : -2].strip()
                 card_type = "Card"
-                card_text = inner
-                
-                # Split on first colon or space (handle malformed cards).
-                if ":" in inner:
-                    parts = inner.split(":", 1)
-                    card_type = parts[0].strip()
-                    card_text = parts[1].strip()
-                elif " " in inner:
-                    parts = inner.split(" ", 1)
-                    card_type = parts[0]
-                    card_text = parts[1].strip()
-                
-                # Validate card type (Goal/Conflict/Turn or custom).
+                card_text = ""
+
                 valid_types = {"Goal", "Conflict", "Turn"}
-                if card_type not in valid_types:
+
+                # Prefer known types as the first token; otherwise keep full label.
+                if not inner:
                     card_type = "Card"
-                
-                # Check if the next line is indented (card content).
+                    card_text = ""
+                else:
+                    first, _, rest = inner.partition(" ")
+                    # Malformed "Type: detail" after the marker colon.
+                    if ":" in first:
+                        left, _, right = first.partition(":")
+                        first = left.strip() or first
+                        rest = f"{right.strip()} {rest}".strip()
+                    if first in valid_types:
+                        card_type = first
+                        card_text = rest.strip()
+                    elif rest:
+                        card_type = first
+                        card_text = rest.strip()
+                    else:
+                        # Single token: known type or custom type name.
+                        card_type = first if first else "Card"
+                        card_text = ""
+
+                # Optional body on the following non-heading, non-marker line.
                 next_block = block.next()
                 if next_block.isValid():
                     next_text = next_block.text().strip()
-                    if next_text and not self.is_scene_heading(next_text) and not next_text.startswith("[[card:"):
-                        card_text = f"{card_text} {next_text}" if card_text else next_text
-                
+                    if (
+                        next_text
+                        and not self.is_scene_heading(next_text)
+                        and not next_text.startswith("[[card:")
+                        and not next_text.startswith("[[beat:")
+                    ):
+                        card_text = f"{card_text} {next_text}".strip() if card_text else next_text
+
                 cards.append((block.blockNumber(), card_type, card_text, scene_heading))
             block = block.next()
         return cards
@@ -453,28 +468,27 @@ class FountainEditor(QPlainTextEdit):
             if self.is_scene_heading(text):
                 scene_heading = text
             elif text.startswith("[[beat:") and text.endswith("]]"):
-                # Extract inner text: [[beat: Act 1 Climax]] → "Act 1 Climax"
-                inner = text[7:-2].strip()
-                beat_type = "Beat"
-                beat_text = inner
-                
-                # Split on first colon or space (handle malformed beats).
-                if ":" in inner:
-                    parts = inner.split(":", 1)
-                    beat_type = parts[0].strip()
-                    beat_text = parts[1].strip()
-                elif " " in inner:
-                    parts = inner.split(" ", 1)
-                    beat_type = parts[0]
-                    beat_text = parts[1].strip()
-                
-                # Check if the next line is indented (beat content).
+                # Beats are freeform labels: [[beat: Act 1 Climax]] keeps the full label.
+                # Optional body lives on the following non-marker line.
+                inner = text[len("[[beat:") : -2].strip()
+                beat_type = inner or "Beat"
+                beat_text = ""
+
                 next_block = block.next()
                 if next_block.isValid():
                     next_text = next_block.text().strip()
-                    if next_text and not self.is_scene_heading(next_text) and not next_text.startswith("[[beat:"):
-                        beat_text = f"{beat_text} {next_text}" if beat_text else next_text
-                
+                    if (
+                        next_text
+                        and not self.is_scene_heading(next_text)
+                        and not next_text.startswith("[[beat:")
+                        and not next_text.startswith("[[card:")
+                    ):
+                        beat_text = next_text
+
+                # list display uses "{type}: {text}"; if no body, show label only once.
+                if not beat_text:
+                    beat_text = beat_type
+
                 beats.append((block.blockNumber(), beat_type, beat_text, scene_heading))
             block = block.next()
         return beats

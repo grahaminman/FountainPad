@@ -12,4 +12,4 @@ Research and product notes. **Not** runtime code.
 **TODO ideas:** workspace `TODO.md` (FountainPad distribution + upgrade backlog)  
 **Screenwriting factory design:** `projects/screenwriting/` (cards stage aligns with upgrade backlog)
 
-_Last updated: 2026-07-21_
+_Last updated: 2026-07-24 — Phase 2 partial shipped; F5 print notes hide; smoke restored_

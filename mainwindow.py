@@ -116,6 +116,7 @@ class MainWindow(QMainWindow):
         self._split_visible = True
         self._nav_visible = True
         self._cards_visible = True
+        self._beats_visible = True
         self._detached: Optional[PreviewWindow] = None
         self._pdf_busy = False
         # Remember non-zero splitter sizes so hide→show does not leave a 0-width pane.
@@ -123,12 +124,18 @@ class MainWindow(QMainWindow):
             _DEFAULT_EDITOR_WIDTH,
             _DEFAULT_SPLIT_PREVIEW_WIDTH,
         ]
-        self._saved_main_splitter_sizes: list[int] = [_DEFAULT_NAV_WIDTH, 1040]
+        self._saved_main_splitter_sizes: list[int] = [
+            _DEFAULT_NAV_WIDTH,
+            _DEFAULT_CARD_NAV_WIDTH,
+            1040,
+            _DEFAULT_NAV_WIDTH,
+        ]
 
         self.editor = FountainEditor()
         self.preview = FountainPreview()
         self.navigator = SceneNavigator()
         self.card_navigator = CardNavigator()
+        self.beat_board = BeatBoard()
 
         # Inner: editor | embedded preview
         self._editor_preview = QSplitter(Qt.Horizontal)
@@ -171,6 +178,7 @@ class MainWindow(QMainWindow):
         self.navigator.sceneActivated.connect(self._on_scene_activated)
         self.card_navigator.cardActivated.connect(self._on_card_activated)
         self.card_navigator.cardTemplateRequested.connect(self._insert_card_template)
+        self.beat_board.beatActivated.connect(self._on_beat_activated)
 
         # Debounce navigator rebuild while typing (cheap, but no need every keystroke).
         self._nav_refresh = QTimer(self)
@@ -194,6 +202,7 @@ class MainWindow(QMainWindow):
         self._apply_theme()
         self._refresh_navigator()
         self._refresh_card_navigator()
+        self._refresh_beat_board()
         self._update_preview_action_states()
 
     # --- UI construction -------------------------------------------------
@@ -453,6 +462,7 @@ class MainWindow(QMainWindow):
         self._sync_previews(immediate=True)
         self._refresh_navigator()
         self._refresh_card_navigator()
+        self._refresh_beat_board()
         self._update_title()
         self._update_status()
 
@@ -738,6 +748,59 @@ class MainWindow(QMainWindow):
             self._remember_main_splitter_sizes()
             self.card_navigator.setVisible(False)
 
+    def toggle_beat_board(self, checked: Optional[bool] = None) -> None:
+        if checked is None:
+            checked = self.act_toggle_beats.isChecked()
+        else:
+            self.act_toggle_beats.setChecked(checked)
+        self._beats_visible = bool(checked)
+        if self._beats_visible:
+            self.beat_board.setVisible(True)
+            self._ensure_main_splitter_sizes()
+            self._refresh_beat_board()
+        else:
+            self._remember_main_splitter_sizes()
+            self.beat_board.setVisible(False)
+
+    def _refresh_beat_board(self) -> None:
+        beats = self.editor.list_beats()
+        self.beat_board.set_beats(beats)
+        block_no = self.editor.textCursor().blockNumber()
+        if beats:
+            target_block = -1
+            for block_number, _, _, _ in beats:
+                if block_number <= block_no:
+                    target_block = block_number
+                else:
+                    break
+            if target_block >= 0:
+                for row in range(self.beat_board._list.count()):
+                    item = self.beat_board._list.item(row)
+                    if item and int(item.data(Qt.UserRole)) == target_block:
+                        self.beat_board._updating = True
+                        self.beat_board._list.setCurrentRow(row)
+                        self.beat_board._updating = False
+
+    def _on_beat_activated(self, block_number: int) -> None:
+        self.editor.goto_block(block_number)
+        self._update_status()
+
+    def _insert_card_template(self, card_type: str) -> None:
+        """Insert a [[card: Type]] stub at the cursor and refresh the card list."""
+        label = (card_type or "Card").strip() or "Card"
+        stub = f"[[card: {label}]]\n"
+        cursor = self.editor.textCursor()
+        if cursor.positionInBlock() > 0 and not cursor.atBlockStart():
+            cursor.movePosition(cursor.MoveOperation.EndOfBlock)
+            cursor.insertText("\n")
+        cursor.insertText(stub)
+        self.editor.setTextCursor(cursor)
+        self.editor.setFocus(Qt.OtherFocusReason)
+        self._dirty = True
+        self._update_title()
+        self._refresh_card_navigator()
+        self.statusBar().showMessage(f"Inserted card template: {label}", 2000)
+
     def toggle_split_preview(self, checked: Optional[bool] = None) -> None:
         """
         Show or hide the *embedded* preview pane.
@@ -857,13 +920,31 @@ class MainWindow(QMainWindow):
             self._saved_main_splitter_sizes = list(sizes)
 
     def _ensure_main_splitter_sizes(self) -> None:
-        sizes = self.splitter.sizes()
-        if len(sizes) < 3 or sizes[0] < 40 or sizes[1] < 40:
-            saved = self._saved_main_splitter_sizes
-            if len(saved) >= 3 and saved[0] >= 40 and saved[1] >= 40:
-                self.splitter.setSizes(saved)
-            else:
-                self.splitter.setSizes([_DEFAULT_NAV_WIDTH, _DEFAULT_NAV_WIDTH, 1040])
+        """Restore sensible widths for visible side panes (nav/cards/beats)."""
+        default = [
+            _DEFAULT_NAV_WIDTH,
+            _DEFAULT_CARD_NAV_WIDTH,
+            1040,
+            _DEFAULT_NAV_WIDTH,
+        ]
+        sizes = list(self.splitter.sizes())
+        if len(sizes) < 4:
+            sizes = (
+                list(self._saved_main_splitter_sizes)
+                if len(self._saved_main_splitter_sizes) >= 4
+                else default
+            )
+        # Index: 0 nav, 1 cards, 2 editor+preview, 3 beats
+        if self._nav_visible and sizes[0] < 40:
+            sizes[0] = default[0]
+        if self._cards_visible and sizes[1] < 40:
+            sizes[1] = default[1]
+        if sizes[2] < 120:
+            sizes[2] = default[2]
+        if self._beats_visible and sizes[3] < 40:
+            sizes[3] = default[3]
+        self.splitter.setSizes(sizes)
+        self._saved_main_splitter_sizes = sizes
 
     def toggle_dark_mode(self, checked: Optional[bool] = None) -> None:
         if checked is None:
@@ -886,6 +967,7 @@ class MainWindow(QMainWindow):
         self.editor.apply_theme(self._dark)
         self.navigator.apply_theme(self._dark)
         self.card_navigator.apply_theme(self._dark)
+        self.beat_board.apply_theme(self._dark)
         self.preview.set_theme(theme)
         if self._detached is not None:
             self._detached.preview.set_theme(theme)
@@ -1117,14 +1199,18 @@ class MainWindow(QMainWindow):
         self._cards_visible = str(cards).lower() in ("1", "true", "yes")
         self.act_toggle_cards.setChecked(self._cards_visible)
         self.card_navigator.setVisible(self._cards_visible)
-        if self._nav_visible or self._cards_visible:
+        beats = s.value("beatsVisible", True)
+        self._beats_visible = str(beats).lower() in ("1", "true", "yes")
+        self.act_toggle_beats.setChecked(self._beats_visible)
+        self.beat_board.setVisible(self._beats_visible)
+        if self._nav_visible or self._cards_visible or self._beats_visible:
             self._ensure_main_splitter_sizes()
 
     def _save_settings(self) -> None:
         # Capture live sizes while panes are visible.
         if self._split_visible:
             self._remember_editor_preview_sizes()
-        if self._nav_visible or self._cards_visible:
+        if self._nav_visible or self._cards_visible or self._beats_visible:
             self._remember_main_splitter_sizes()
         s = QSettings(APP_ORG, APP_NAME)
         s.setValue("geometry", self.saveGeometry())
@@ -1135,6 +1221,7 @@ class MainWindow(QMainWindow):
         s.setValue("splitVisible", self._split_visible)
         s.setValue("navVisible", self._nav_visible)
         s.setValue("cardsVisible", self._cards_visible)
+        s.setValue("beatsVisible", self._beats_visible)
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         if not self._maybe_save():

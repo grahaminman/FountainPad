@@ -71,6 +71,27 @@ def main() -> int:
     ed.apply_theme(False)
     print("theme toggle OK")
 
+    # Cards / beats parsers (Phase 2)
+    sample_cards = (
+        "INT. OFFICE - DAY\n\n"
+        "[[card: Goal]]\n"
+        "Get the files.\n\n"
+        "[[card: Conflict]]\n"
+        "Guard arrives.\n\n"
+        "[[beat: Act 1 Turn]]\n"
+        "She runs.\n"
+    )
+    ed.setPlainText(sample_cards)
+    cards = ed.list_cards()
+    assert len(cards) >= 2, cards
+    assert cards[0][1] == "Goal", cards[0]
+    assert cards[1][1] == "Conflict", cards[1]
+    assert "OFFICE" in cards[0][3], cards[0]
+    beats = ed.list_beats()
+    assert len(beats) >= 1, beats
+    assert "Act" in beats[0][1] or "Turn" in beats[0][1] or "Act" in beats[0][2], beats[0]
+    print("cards/beats parse OK", cards, beats)
+
     res = ROOT / "resources"
     for rel in (
         "fountain.js",
@@ -84,13 +105,19 @@ def main() -> int:
     assert "renderFountain" in html and "setTheme" in html
     js = (res / "fountain.js").read_text(encoding="utf-8")
     assert "parse" in js
-    print("resources OK")
+    light_css = (res / "styles/preview-light.css").read_text(encoding="utf-8")
+    dark_css = (res / "styles/preview-dark.css").read_text(encoding="utf-8")
+    assert "@media print" in light_css and ".note" in light_css
+    assert "@media print" in dark_css and ".note" in dark_css
+    print("resources OK (incl. F5 print note hide)")
 
     w = MainWindow()
     # isVisible() is False until the window is shown (even offscreen).
     w.show()
     app.processEvents()
     assert "EXT. DESERT HIGHWAY" in w.editor.toPlainText()
+    assert hasattr(w, "beat_board")
+    assert hasattr(w, "card_navigator")
 
     # Scene navigator
     scenes = w.editor.list_scene_headings()
@@ -105,6 +132,67 @@ def main() -> int:
     w.toggle_navigator(True)
     assert not w.navigator.isHidden()
     print("navigator OK", [h for _, h in scenes])
+
+    # Index cards + template insert + beat board
+    w.editor.setPlainText(
+        "INT. LAB - NIGHT\n\n"
+        "[[card: Goal]]\n"
+        "Find the sample.\n\n"
+        "[[beat: Midpoint]]\n"
+        "Alarm sounds.\n"
+    )
+    w._dirty = False
+    w._refresh_card_navigator()
+    w._refresh_beat_board()
+    assert w.card_navigator._list.count() >= 1
+    assert w.beat_board._list.count() >= 1
+    before = w.editor.toPlainText()
+    w._insert_card_template("Turn")
+    after = w.editor.toPlainText()
+    assert "[[card: Turn]]" in after
+    assert after != before
+    w._refresh_card_navigator()
+    assert any(ct == "Turn" for _, ct, _, _ in w.editor.list_cards())
+    w.toggle_card_navigator(False)
+    assert w.card_navigator.isHidden()
+    w.toggle_card_navigator(True)
+    w.toggle_beat_board(False)
+    assert w.beat_board.isHidden()
+    w.toggle_beat_board(True)
+    print("cards/beats UI OK")
+
+    # Project folder seeds
+    with tempfile.TemporaryDirectory() as td:
+        project = Path(td) / "demo_project"
+        project.mkdir()
+        # Bypass dialog: exercise seed + open path pieces
+        for name, template in [
+            ("canon.md", "# Canon\n\nStory world, rules, lore."),
+            ("beats.md", "# Beats\n\nMajor plot points."),
+            ("cards.md", "# Index Cards\n\n[[card: Goal]]\n"),
+        ]:
+            (project / name).write_text(template, encoding="utf-8")
+        script = project / "script.fountain"
+        script.write_text("INT. SEED - DAY\n\nHello.\n", encoding="utf-8")
+        w._dirty = False
+        w._open_fountain_file(script)
+        assert w._path == script
+        assert "SEED" in w.editor.toPlainText()
+        # Missing-file seed behaviour
+        empty = Path(td) / "empty_project"
+        empty.mkdir()
+        for name, template in [
+            ("canon.md", "# Canon\n\nStory world, rules, lore."),
+            ("beats.md", "# Beats\n\nMajor plot points."),
+            ("cards.md", "# Index Cards\n\n[[card: Goal]]\n[[card: Conflict]]\n[[card: Turn]]"),
+        ]:
+            f = empty / name
+            if not f.exists():
+                f.write_text(template, encoding="utf-8")
+        assert (empty / "canon.md").exists()
+        assert (empty / "beats.md").exists()
+        assert (empty / "cards.md").exists()
+        print("project folder seeds OK", empty)
 
     # File → Close clears buffer without quitting
     w.editor.setPlainText("INT. TEMP - DAY\n\nHi.\n")

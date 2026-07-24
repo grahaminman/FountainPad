@@ -13,14 +13,16 @@ Desktop Fountain screenplay editor: plain-text source on the left, formatted pre
 | File | Role |
 |---|---|
 | `main.py` | Entry; set OpenGL-share attr → `QApplication` → `MainWindow` |
-| `mainwindow.py` | Shell: menus, splitters, file ops, preview modes, PDF, settings |
-| `editor.py` | `FountainEditor` + `FountainHighlighter` + scene helpers |
+| `mainwindow.py` | Shell: menus, splitters, file ops, preview modes, PDF, project folder, settings |
+| `editor.py` | `FountainEditor` + `FountainHighlighter` + scene / `list_cards` / `list_beats` helpers |
 | `navigator.py` | Scene list + filter + jump signal |
+| `cardnavigator.py` | Index cards list + Goal/Conflict/Turn template buttons + jump |
+| `beatboard.py` | Beat list (linear) + filter + jump — not freeform canvas |
 | `preview.py` | `FountainPreview` (WebEngine) + `PreviewWindow` + `print_to_pdf` |
 | `resources/preview.html` | Offline HTML shell; JS API `setTheme` / `renderFountain` |
 | `resources/fountain.js` | Matt Daly parser (MIT) — treat as vendor |
-| `resources/styles/` | Light/dark CSS variables for paper look |
-| `_smoke_test.py` | Offscreen regression checks |
+| `resources/styles/` | Light/dark CSS; print media hides `.note` when F5 CSS committed |
+| `_smoke_test.py` | Regression checks — **fix working-tree rewrite if broken; prefer offscreen script** |
 | `docs/` | Product planning (distribution, upgrade backlog) — not runtime |
 
 ## Layout (runtime)
@@ -76,4 +78,9 @@ python _smoke_test.py
 
 ## Known product gaps (not bugs)
 
-See `docs/UPGRADE_BACKLOG.md`. Packaged AppImage held. Phase 1 remaining: hide `[[notes]]` in print (F5).
+See `docs/UPGRADE_BACKLOG.md`.
+
+- Packaged AppImage / no-terminal distribution: **held**
+- Phase 1 F5 (hide notes in print): implemented in working tree CSS; commit if still dirty
+- Phase 2 shipped partial (2026-07-23 `c969fdf`): cards list, beat list, project folder seeds — not full FD cards/board or markdown pack sync
+- Smoke test: restore reliable offscreen runner before relying on it

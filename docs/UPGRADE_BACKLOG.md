@@ -81,17 +81,17 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 
 | ID | Feature | Notes | Source |
 |---|---|---|---|
-| C1 | **Index card view** | One card per scene: slugline + summary side + optional script peek | **Final Draft Index Cards** |
+| C1 | **Index card view** | One card per scene: slugline + summary side + optional script peek | **DONE 2026-07-23** (inline `[[card: Type]]` list + filter + jump; View toggle) |
 | C2 | Drag reorder cards → reorder scenes in Fountain | Hard but high value; careful with dual dialogue/notes | FD / WriterDuet |
 | C3 | Color tags (plot A/B, POV, day/night) | Metadata in Fountain notes or sidecar JSON | FD Beat Board habits |
-| C4 | **Beat board** (freeform canvas) | Beats not 1:1 scenes; link beat → scene(s) | **Final Draft Beat Board** |
-| C5 | Outline lane (linear) | Horizontal/vertical sequence of beats; lighter than full board | FD Outline Editor |
-| C6 | Card templates | Goal / conflict / turn / image / “must hit” fields | Our OS scene cards |
-| C7 | Import/export cards as Markdown | Matches OpenClaw `cards/` folder grammar | Our pipeline |
+| C4 | **Beat board** (freeform canvas) | Beats not 1:1 scenes; link beat → scene(s) | **Partial 2026-07-23** — linear list of `[[beat: …]]` + jump (not freeform canvas) |
+| C5 | Outline lane (linear) | Horizontal/vertical sequence of beats; lighter than full board | FD Outline Editor — list UI is a first step via C4 partial |
+| C6 | Card templates | Goal / conflict / turn / image / “must hit” fields | **Partial 2026-07-23** — Goal/Conflict/Turn insert buttons in CardNavigator |
+| C7 | Import/export cards as Markdown | Matches OpenClaw `cards/` folder grammar | **Partial 2026-07-23** — project folder seeds `cards.md`; full bidirectional pack still open |
 | C8 | Mind-map lite | Optional links between cards — don’t boil ocean v1 | WriterDuet |
 
-**Suggested v1 cards (don’t clone all of FD):**  
-C1 + C6 + C7 + jump-to-scene (N1). Reorder (C2) next. Full freeform Beat Board (C4) after.
+**Shipped v1 cards (2026-07-23 evening):** C1 list + jump, C6 template buttons, C4-as-list beats, project folder seeds (`canon.md` / `beats.md` / `cards.md`).  
+**Still open:** C2 reorder, true freeform C4, rich C7 markdown pack sync, scene-summary cards (not only inline markers).
 
 ### D. Fountain craft & export
 
@@ -101,7 +101,7 @@ C1 + C6 + C7 + jump-to-scene (N1). Reorder (C2) next. Full freeform Beat Board (
 | F2 | PDF export (paginated) | From preview engine or print CSS | **DONE 2026-07-23** (WebEngine printToPdf, Letter, light theme) |
 | F3 | FDX import/export (best effort) | Collaboration with FD users | Industry |
 | F4 | Title page editor | Structured fields → Fountain title page | Universal |
-| F5 | Hide/show `[[notes]]` in preview/print | Common Fountain need | Highland / JA |
+| F5 | Hide/show `[[notes]]` in preview/print | Common Fountain need | **DONE 2026-07-23** (print CSS) |
 | F6 | Find in script / find character cues | | Universal |
 | F7 | Snapshot / version sidebar | Local copies dated — not full Git UI | Process / revise |
 | F8 | Dark mode polish + focus mode | Distraction-free | Highland sprint culture |
@@ -110,7 +110,7 @@ C1 + C6 + C7 + jump-to-scene (N1). Reorder (C2) next. Full freeform Beat Board (
 
 | ID | Feature | Notes | Source |
 |---|---|---|---|
-| P1 | **Project folder mode** | Open directory: script + `beats/` + `cards/` + `CANON.md` | Our Screenwriting OS |
+| P1 | **Project folder mode** | Open directory: script + `beats/` + `cards/` + `CANON.md` | **Partial 2026-07-23** — File → Open Project Folder… seeds `canon.md` / `beats.md` / `cards.md` + loads `script.fountain` if present (flat files, not full binder UI) |
 | P2 | Multi-tab or split: script \| canon \| beats | | Our OS |
 | P3 | Generate cards from scene headings | Empty summaries for fill-in | Speed |
 | P4 | Generate scene skeleton from card | Insert Fountain stub under cursor | Cards → pages |
@@ -177,13 +177,17 @@ Sources sampled 2026-07-21 (non-exhaustive): Final Draft KB/blog (Beat Board, In
 - D1 packaged builds  
 - N1 scene navigator ✅ (2026-07-23)  
 - F2 PDF export ✅ (2026-07-23)  
-- F5 notes hide in print  
+- F5 notes hide in print ✅ (2026-07-23)  
 
 ### Phase 2 — “cards + pipeline”
-- C1/C6/C7 index cards + markdown exchange  
-- P1 project folder mode aligned with Screenwriting OS  
-- P3/P4 card ↔ scene helpers  
-- N4 section outline  
+- C1 index cards list + jump ✅ (2026-07-23)  
+- C6 Goal/Conflict/Turn template buttons ✅ partial  
+- C4 beat list (not freeform canvas) ✅ partial  
+- P1 project folder seed files ✅ partial  
+- C7 full markdown card-pack exchange — still open  
+- P3/P4 card ↔ scene helpers — still open  
+- N4 section outline — still open  
+- **Uncommitted 2026-07-23 night:** F5 print CSS for notes hide (light+dark); smoke test rewrite incomplete  
 
 ### Phase 3 — “board + industry exchange”
 - C2 reorder  

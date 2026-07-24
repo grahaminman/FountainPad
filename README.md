@@ -9,9 +9,12 @@ Write plain-text `.fountain` on the left, see a properly formatted screenplay pr
 - Fountain text editor with monospace font and line numbers
 - Syntax highlighting for scene headings, character cues, dialogue, parentheticals, transitions, sections, notes, and title-page keys
 - **Scene navigator** — list of `INT.`/`EXT.` headings, filter, click to jump (View → Show Scene Navigator)
+- **Index cards** — `[[card: Goal|Conflict|Turn]]` list + template buttons (View → Show Index Cards)
+- **Beat board (list)** — `[[beat: …]]` markers, filter, jump (View → Show Beat Board)
+- **Project folder** — File → Open Project Folder… seeds `canon.md` / `beats.md` / `cards.md` and loads `script.fountain` when present
 - **Live split preview** (editor | formatted page) with 300ms debounce — show/hide independently
 - **Detach / reattach preview** — floating window plus in-window split; Reattach restores split
-- **Export PDF** from the formatted preview (File → Export PDF…)
+- **Export PDF** from the formatted preview (File → Export PDF…); Fountain `[[notes]]` hidden in print CSS
 - New / Open / Close / Save / Save As for `.fountain` files
 - Unsaved-changes tracking and window title indicator
 - Light / Dark mode (editor + preview)
@@ -105,7 +108,10 @@ Exact package names vary by distro; PySide6 wheels bundle most of Qt.
 | Ctrl/Cmd+S | Save |
 | Ctrl/Cmd+Shift+S | Save As |
 | Ctrl/Cmd+Shift+E | Export PDF |
+| Ctrl/Cmd+Shift+O | Open project folder |
 | Ctrl/Cmd+\\ | Toggle scene navigator |
+| Ctrl/Cmd+Shift+C | Toggle index cards |
+| Ctrl/Cmd+Shift+B | Toggle beat board |
 | Ctrl/Cmd+P | Toggle split preview (in-window) |
 | Ctrl/Cmd+Shift+P | Detach preview window |
 | Ctrl/Cmd+Alt+P | Reattach preview (close float + show split) |
@@ -128,10 +134,13 @@ Not required to run the app — captured for future work:
 ```
 FountainPad/
 ├── main.py              # Entry point
-├── editor.py            # Editor + Fountain highlighter + line numbers
+├── editor.py            # Editor + highlighter + scene/card/beat helpers
 ├── navigator.py         # Scene navigator list + filter
+├── cardnavigator.py     # Index cards list + Goal/Conflict/Turn templates
+├── beatboard.py         # Beat list (linear) + filter + jump
 ├── preview.py           # QWebEngineView + fountain.js bridge + PDF export
-├── mainwindow.py        # Menus, splitter, files, theme, settings
+├── mainwindow.py        # Menus, splitters, files, project folder, theme
+├── _smoke_test.py       # Headless offscreen regression checks
 ├── docs/                # Distribution + upgrade backlog (planning)
 ├── resources/
 │   ├── fountain.js      # Bundled parser (Matt Daly, MIT)
