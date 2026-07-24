@@ -66,6 +66,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 - [x] Cards-first Phase A/B: stable ids, hide notes in preview/PDF, editor dim toggle, Apply card→script (2026-07-24)
 - [x] Editable Index Card detail + version stack + Apply action-only/never dialogue (2026-07-24)
 - [x] Phase C first cut: card scene Up/Down reorder (2026-07-24); drag-drop later
+- [x] Card panel UX: auto-save typing, multi-row buttons, multi-line wrap labels, strip cards/@vN from preview+PDF (2026-07-24)
 - [ ] Keep USER_GUIDE honest as cards/beats/project mature
 
 ### A. Distribution & trust (product)

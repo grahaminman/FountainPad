@@ -715,7 +715,8 @@ class MainWindow(QMainWindow):
         if out.suffix.lower() != ".pdf":
             out = out.with_suffix(".pdf")
 
-        text = self.editor.toPlainText()
+        # PDF must never show card/@vN planning chrome.
+        text = self._preview_source_text()
         target = self._pdf_target_preview()
         if target is None:
             QMessageBox.warning(
@@ -735,7 +736,7 @@ class MainWindow(QMainWindow):
             self.act_export_pdf.setEnabled(True)
             theme = "dark" if self._dark else "light"
             target.set_theme(theme)
-            target.set_fountain_text(text, immediate=True)
+            target.set_fountain_text(self._preview_source_text(), immediate=True)
             if ok:
                 self.statusBar().showMessage(f"Exported PDF: {Path(pdf_path).name}", 5000)
             else:
@@ -766,7 +767,7 @@ class MainWindow(QMainWindow):
                 self.act_export_pdf.setEnabled(True)
                 theme = "dark" if self._dark else "light"
                 target.set_theme(theme)
-                target.set_fountain_text(text, immediate=True)
+                target.set_fountain_text(self._preview_source_text(), immediate=True)
                 QMessageBox.critical(
                     self,
                     "PDF export failed",
@@ -796,15 +797,23 @@ class MainWindow(QMainWindow):
         self._cards_refresh.start()
         self._beats_refresh.start()
 
+    def _preview_source_text(self) -> str:
+        """Fountain text for preview/PDF: strip card/beat chrome (incl. @vN)."""
+        import cards as cards_mod
+
+        return cards_mod.strip_cards_for_preview(
+            self.editor.toPlainText(),
+            self.editor.is_scene_heading,
+        )
+
     def _sync_previews(self, immediate: bool = False) -> None:
         """
         Push editor text to every live preview surface.
 
-        Embedded preview is updated whenever the split is visible *or* we need
-        it warm for PDF. Detached preview is updated only while it exists.
+        Card/beat markers and version lines (@vN) are stripped so the page
+        never shows planning chrome. Embedded preview stays warm for PDF.
         """
-        text = self.editor.toPlainText()
-        # Keep embedded preview in sync even when hidden so show/PDF are instant.
+        text = self._preview_source_text()
         self.preview.set_fountain_text(text, immediate=immediate)
         if self._detached is not None:
             self._detached.preview.set_fountain_text(text, immediate=immediate)
@@ -978,6 +987,9 @@ class MainWindow(QMainWindow):
 
     def apply_card_to_script(self, card_block: int) -> None:
         """Apply active card version: scene heading + leading action only (never dialogue)."""
+        # Flush any debounced panel typing before reading working text / file.
+        if hasattr(self.card_navigator, "flush_pending_save"):
+            self.card_navigator.flush_pending_save()
         before = self.editor.toPlainText()
         # Prefer panel working text + snapshot so left-side edits win on Apply.
         info = None
@@ -1062,6 +1074,8 @@ class MainWindow(QMainWindow):
 
     def reorder_card_scene(self, card_block: int, direction: int) -> None:
         """Phase C: move the scene owned by this card up/down in the Fountain file."""
+        if hasattr(self.card_navigator, "flush_pending_save"):
+            self.card_navigator.flush_pending_save()
         before = self.editor.toPlainText()
         message, new_block = self.editor.reorder_card_scene(int(card_block), int(direction))
         after = self.editor.toPlainText()
@@ -1238,7 +1252,7 @@ class MainWindow(QMainWindow):
 
         win = PreviewWindow()
         win.preview.set_theme("dark" if self._dark else "light")
-        win.preview.set_fountain_text(self.editor.toPlainText(), immediate=True)
+        win.preview.set_fountain_text(self._preview_source_text(), immediate=True)
         win.closed.connect(self._on_detached_closed)
         self._detached = win
         win.show()

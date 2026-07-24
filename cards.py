@@ -96,21 +96,27 @@ class CardInfo:
         return text.strip()
 
     def display_label(self) -> str:
-        slug = self.draft_slug
+        """Short multi-line label for the Index Cards list (narrow pane)."""
         active = self.active_text
+        lines = [ln.strip() for ln in active.splitlines() if ln.strip()] if active else []
+        slug = self.draft_slug
+        note = ""
         if slug:
-            rest = "\n".join(active.splitlines()[1:]).strip()
-            bit = rest.splitlines()[0] if rest else ""
-            core = f"{self.card_type}: {slug}" + (f" — {bit}" if bit else "")
-        else:
-            bit = active.splitlines()[0] if active else ""
-            core = f"{self.card_type}: {bit}" if bit else self.card_type
-        ver_bit = f"{self.active_version}"
+            note = lines[1] if len(lines) > 1 else ""
+        elif lines:
+            note = lines[0]
+        cid = self.card_id or "?"
+        ver = self.active_version or "v1"
         if len(self.versions) > 1:
-            ver_bit = f"{self.active_version}/{len(self.versions)}"
-        if self.card_id:
-            return f"[{self.card_id} · {ver_bit}] {core}"
-        return f"[{ver_bit}] {core}"
+            head = f"{cid} · {self.card_type} · {ver}/{len(self.versions)}"
+        else:
+            head = f"{cid} · {self.card_type}"
+        parts = [head]
+        if slug:
+            parts.append(slug)
+        if note and note != slug:
+            parts.append(note)
+        return "\n".join(parts)
 
 
 def looks_like_scene(text: str) -> bool:
@@ -945,3 +951,43 @@ def reorder_card_scene(
     moved = "up" if direction < 0 else "down"
     heading = plain[s0].strip() if 0 <= s0 < len(plain) else "scene"
     return new_text, f"Moved scene {moved}: {heading}", new_block
+
+
+def strip_cards_for_preview(
+    text: str,
+    is_scene_heading: Callable[[str], bool],
+) -> str:
+    """Remove card markers and their bodies (incl. @vN lines) for preview/PDF.
+
+    Beat markers are also removed so planning chrome never hits the page.
+    Scene headings, action, and dialogue outside card blocks are kept.
+    """
+    plain = text.splitlines()
+    ends_with_nl = text.endswith("\n")
+    out: List[str] = []
+    i = 0
+    while i < len(plain):
+        line = plain[i]
+        if RE_CARD_LINE.match(line) or RE_BEAT_LINE.match(line):
+            i = _body_end(plain, i + 1, is_scene_heading)
+            # Drop one following blank if we would double-space awkwardly
+            if out and out[-1].strip() == "" and i < len(plain) and not plain[i].strip():
+                i += 1
+            continue
+        out.append(line)
+        i += 1
+    # Collapse runs of 3+ blank lines to 2
+    cleaned: List[str] = []
+    blank_run = 0
+    for ln in out:
+        if not ln.strip():
+            blank_run += 1
+            if blank_run <= 2:
+                cleaned.append(ln)
+        else:
+            blank_run = 0
+            cleaned.append(ln)
+    new_text = "\n".join(cleaned)
+    if ends_with_nl and new_text and not new_text.endswith("\n"):
+        new_text += "\n"
+    return new_text

@@ -1,6 +1,6 @@
 # FountainPad — User Guide
 
-**Last updated:** 2026-07-24 (card scene reorder Up/Down)  
+**Last updated:** 2026-07-24 (card auto-save + multi-line panel + clean preview)  
 **Audience:** someone using the app (not building it)  
 **Honesty rule:** features marked **Partial** work today but are not finished products. If something feels unclear, that is a real UX signal — this guide should explain what to expect.
 
@@ -60,7 +60,7 @@ Standard text editing against the **source editor** (not the preview):
 | **Generate Empty Cards from Scenes…** | **Partial (P3).** Optional empty card stubs under scenes with no card yet. Confirm first. Same as **From scenes** on the Index Cards panel. |
 | **Apply Card to Script** | **Partial.** Pushes the **active card version** into the screenplay: scene heading + **leading action only**. **Dialogue is never changed.** Explicit action — not a silent compile. Ctrl/Cmd+Shift+A. |
 | **Ensure Card IDs** | Assign stable `id=cNNN` on markers that do not have one yet. |
-| **Move Card Scene Up / Down** | **Partial (Phase C).** Moves the **whole scene** owned by the selected card (heading through the line before the next scene). Card markers and dialogue in that scene travel with it. Index Cards **Up** / **Down**, or Ctrl/Cmd+Alt+Up/Down. |
+| **Move Card Scene Up / Down** | **Partial (Phase C).** Moves the **whole scene** owned by the selected card (heading through the line before the next scene). Card markers and dialogue in that scene travel with it. Index Cards **Scene ↑** / **Scene ↓**, or Ctrl/Cmd+Alt+Up/Down. |
 
 ### View
 
@@ -72,7 +72,7 @@ Standard text editing against the **source editor** (not the preview):
 | **Show Split Preview** | Show/hide the **in-window** preview pane only. Independent of a detached window. |
 | **Detach Preview Window** | Open a **second** live preview in its own window. Does not remove the split preview. If already detached, focuses that window. |
 | **Reattach Preview** | Close the floating preview **and** turn the split preview **on** so you are not left without a preview. |
-| **Show Card Markers in Editor** | When **on** (default), `[[card: …]]` lines are easy to see in the source. When **off**, those lines are **dimmed** in the editor only (still saved). Card/note markers **never** show in the formatted **preview** or **PDF**. |
+| **Show Card Markers in Editor** | When **on** (default), `[[card: …]]` lines are easy to see in the source. When **off**, those lines are **dimmed** in the editor only (still saved). Card/beat markers, card bodies, and `@vN` version lines are **removed** from the formatted **preview** and **PDF** (not just dimmed). |
 | **Dark Mode** | Toggle dark theme for editor chrome and preview. |
 
 ### Help
@@ -120,7 +120,8 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
 
 ### What works today
 
-- **Editable card on the left:** select a card → edit type and full text in the **Card detail** pane (not only in the script).
+- **Editable card on the left:** select a card → type in the detail pane. **Text auto-saves** into the card in the Fountain file (no separate Save button required). Status line under the editor says when it is saving.
+- **Narrow panel layout:** buttons sit on **two rows**; card list labels are **multi-line** (id · type, then slug, then first note line) and wrap so a thin cards column stays readable.
 - Markers in the Fountain file (stable ids + optional versions):
 
   ```fountain
@@ -133,20 +134,23 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
   Dogs go quiet.
   ```
 
-  Single-version cards stay simple (no `@vN` until you save a second version).
+  Single-version cards stay simple (no `@vN` until you create a second version). Those `@vN` lines are **source-only** — they do **not** appear in preview/PDF.
 
-- **Versions (primitive progress):**
-  - **Save** — write editor text into the **active** version.
-  - **Save ver** — if the text changed, append a **new** version and make it active (keeps older ones).
-  - Version list shows history; **Load** puts an old version in the editor; **Make top** (or double-click) sets that version as active.
-  - **Apply** snapshots changed text if needed, then pushes the **active** version to the script.
+- **Panel buttons:**
+  - **Goal / Conflict / Turn** — insert a new card at the cursor.
+  - **From scenes** — empty stubs under scenes that have no card yet.
+  - **Apply → script** — flush any pending typing, then push the **active** version to the page.
+  - **New version** — keep the old text as history and start `v2`, `v3`, …
+  - **Scene ↑ / Scene ↓** — move the card’s whole scene earlier/later in the script.
+- **History (versions):**
+  - List shows prior snapshots; **Show in editor** loads one into the text box (then auto-saves as active text if you leave it).
+  - **Use this version** (or double-click) makes that history entry the **active** version.
 - **Apply rules (important):** updates **scene heading** + **leading action** only. **Character cues and dialogue are never modified.** You can still edit anything in the script afterward.
-- **Goal / Conflict / Turn**, **From scenes**, stable ids, preview/PDF hide markers, editor dim toggle — as before.
 - Click a card to jump the script; filter by id/type/text/scene.
 
 ### What is *not* finished
 
-- **Drag-and-drop reorder** — not yet; use **Up** / **Down** for now.
+- **Drag-and-drop reorder** — not yet; use **Scene ↑** / **Scene ↓** for now.
 - Multi-card scenes: moving one card moves the **whole shared scene** (all cards in that scene travel together).
 - No separate visual corkboard; storage is still inside the Fountain file.
 - Apply does not rewrite dialogue (by design) and does not replace a whole scene body.
@@ -155,11 +159,11 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
 
 ### How you are meant to use it (for now) — cards first
 
-1. Capture / edit the idea **on the left** (first line can be `INT.`/`EXT.` …; rest = action notes).  
-2. **Save ver** when you want a progress snapshot.  
-3. **Apply** when you want that active version’s slug + action on the page (dialogue stays yours).  
-4. To roll back an idea: **Make top** on an older version → **Apply** again (or copy from the version tooltip/editor).  
-5. **Up** / **Down** on a card moves that card’s **scene block** in the script (not just the list row).  
+1. Capture / edit the idea **on the left** (first line can be `INT.`/`EXT.` …; rest = action notes). Typing **auto-saves** to the card.  
+2. **New version** when you want a progress snapshot.  
+3. **Apply → script** when you want that active version’s slug + action on the page (dialogue stays yours).  
+4. To roll back an idea: **Use this version** on an older history row → **Apply → script** again.  
+5. **Scene ↑** / **Scene ↓** moves that card’s **scene block** in the script (not just the list row).  
 6. Keep writing dialogue and pages freely in the script.
 
 These are **notes toward the draft**, not instructions the script must obey.
