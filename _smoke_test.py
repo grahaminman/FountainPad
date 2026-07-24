@@ -184,6 +184,63 @@ def main() -> int:
     w.toggle_beat_board(True)
     print("cards/beats UI OK")
 
+    # P3: generate empty cards from scenes (skip scenes that already have cards)
+    from PySide6.QtWidgets import QMessageBox
+
+    w.editor.setPlainText(
+        "INT. ONE - DAY\n\n"
+        "Action in one.\n\n"
+        "INT. TWO - NIGHT\n\n"
+        "[[card: Goal]]\n"
+        "Already planned.\n\n"
+        "EXT. THREE - DAY\n\n"
+        "Action in three.\n"
+    )
+    w._dirty = False
+    w._refresh_card_navigator()
+    before_cards = w.editor.list_cards()
+    assert len(before_cards) == 1, before_cards
+    # Auto-accept the confirm dialog in offscreen smoke.
+    answers = {"n": 0}
+
+    def _auto_yes(*_a, **_k):
+        answers["n"] += 1
+        return QMessageBox.StandardButton.Yes
+
+    original_question = QMessageBox.question
+    QMessageBox.question = staticmethod(_auto_yes)  # type: ignore[method-assign, assignment]
+    try:
+        w.generate_empty_cards_from_scenes()
+    finally:
+        QMessageBox.question = original_question  # type: ignore[method-assign]
+    assert answers["n"] == 1, answers
+    after_cards = w.editor.list_cards()
+    # ONE and THREE get Note stubs; TWO already had Goal
+    types_by_scene = {}
+    for _bn, ctype, _txt, scene in after_cards:
+        types_by_scene.setdefault(scene, []).append(ctype)
+    assert "Note" in types_by_scene.get("INT. ONE - DAY", []), types_by_scene
+    assert "Goal" in types_by_scene.get("INT. TWO - NIGHT", []), types_by_scene
+    assert "Note" in types_by_scene.get("EXT. THREE - DAY", []), types_by_scene
+    assert len(after_cards) == 3, after_cards
+    assert w._dirty is True
+    # Second run: all scenes have cards → information path (no insert)
+    infos = {"n": 0}
+
+    def _auto_info(*_a, **_k):
+        infos["n"] += 1
+        return QMessageBox.StandardButton.Ok
+
+    original_info = QMessageBox.information
+    QMessageBox.information = staticmethod(_auto_info)  # type: ignore[method-assign, assignment]
+    try:
+        w.generate_empty_cards_from_scenes()
+    finally:
+        QMessageBox.information = original_info  # type: ignore[method-assign]
+    assert infos["n"] == 1, infos
+    assert len(w.editor.list_cards()) == 3
+    print("P3 cards-from-scenes OK", types_by_scene)
+
     # Project folder seeds
     with tempfile.TemporaryDirectory() as td:
         project = Path(td) / "demo_project"

@@ -44,6 +44,7 @@ class CardNavigator(QWidget):
 
     cardActivated = Signal(int)  # document block number
     cardTemplateRequested = Signal(str)  # card_type (e.g., "Goal")
+    generateFromScenesRequested = Signal()  # P3: empty note stubs per scene
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -56,10 +57,11 @@ class CardNavigator(QWidget):
         title_font.setBold(True)
         title.setFont(title_font)
 
-        # Template buttons (Goal/Conflict/Turn)
+        # Template buttons (Goal/Conflict/Turn) + optional scene stubs
         self._btn_goal = self._make_template_button("Goal")
         self._btn_conflict = self._make_template_button("Conflict")
         self._btn_turn = self._make_template_button("Turn")
+        self._btn_from_scenes = self._make_from_scenes_button()
 
         self._filter = QLineEdit()
         self._filter.setPlaceholderText("Filter cards…")
@@ -81,6 +83,7 @@ class CardNavigator(QWidget):
         header.addWidget(self._btn_goal)
         header.addWidget(self._btn_conflict)
         header.addWidget(self._btn_turn)
+        header.addWidget(self._btn_from_scenes)
         header.addStretch(1)
         header.addWidget(self._count)
 
@@ -108,6 +111,19 @@ class CardNavigator(QWidget):
     def _insert_card_template(self, card_type: str) -> None:
         """Emit a signal to insert a card template at the cursor."""
         self.cardTemplateRequested.emit(card_type)
+
+    def _make_from_scenes_button(self):
+        from PySide6.QtWidgets import QToolButton
+
+        btn = QToolButton()
+        btn.setText("From scenes")
+        btn.setToolTip(
+            "Insert an empty card note under each scene that has none "
+            "(optional planning notes — not instructions)."
+        )
+        btn.setAutoRaise(True)
+        btn.clicked.connect(self.generateFromScenesRequested.emit)
+        return btn
 
     def set_cards(self, cards: list[tuple[int, str, str, str]]) -> None:
         """Replace card list. cards = [(block_number, card_type, card_text, scene_heading), ...]."""

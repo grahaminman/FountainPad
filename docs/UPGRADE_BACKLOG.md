@@ -62,6 +62,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 - [x] Traditional menu bar **File · Edit · View · Help** (2026-07-24)
 - [x] In-app Help → `resources/help/USER_GUIDE.md` (living; update with features)
 - [x] Local `build-notes/` gitignored (process ledger off GitHub)
+- [x] P3 empty cards from scenes + Help update (2026-07-24)
 - [ ] Keep USER_GUIDE honest as cards/beats/project mature
 
 ### A. Distribution & trust (product)
@@ -118,7 +119,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 |---|---|---|---|
 | P1 | **Project folder mode** | Open directory: script + `beats/` + `cards/` + `CANON.md` | **Partial 2026-07-23** — File → Open Project Folder… seeds `canon.md` / `beats.md` / `cards.md` + loads `script.fountain` if present (flat files, not full binder UI) |
 | P2 | Multi-tab or split: script \| canon \| beats | | Our OS |
-| P3 | Generate cards from scene headings | Empty summaries for fill-in | Speed |
+| P3 | Generate cards from scene headings | Empty summaries for fill-in | **DONE 2026-07-24** — Edit menu + Index Cards “From scenes”; empty `[[card: Note]]` under scenes with no card; confirm; skips scenes that already have cards; notes-not-instructions framing |
 | P4 | Generate scene skeleton from card | Insert Fountain stub under cursor | Cards → pages |
 | P5 | Sequence markers | e.g. sections `## SEQ 01` with progress | Our seq machine |
 | P6 | Constraints checklist panel | Budget/cast/must-hits checkboxes | Magic/Grok lessons |

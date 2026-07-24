@@ -188,6 +188,9 @@ class MainWindow(QMainWindow):
         self.navigator.sceneActivated.connect(self._on_scene_activated)
         self.card_navigator.cardActivated.connect(self._on_card_activated)
         self.card_navigator.cardTemplateRequested.connect(self._insert_card_template)
+        self.card_navigator.generateFromScenesRequested.connect(
+            self.generate_empty_cards_from_scenes
+        )
         self.beat_board.beatActivated.connect(self._on_beat_activated)
 
         # Debounce navigator rebuild while typing (cheap, but no need every keystroke).
@@ -340,6 +343,12 @@ class MainWindow(QMainWindow):
         self.act_select_all.setStatusTip("Select all script text")
         self.act_select_all.triggered.connect(self.editor.selectAll)
 
+        self.act_cards_from_scenes = QAction("Generate Empty &Cards from Scenes…", self)
+        self.act_cards_from_scenes.setStatusTip(
+            "Insert optional empty card notes under scenes that have none"
+        )
+        self.act_cards_from_scenes.triggered.connect(self.generate_empty_cards_from_scenes)
+
         self.act_help = QAction("FountainPad &Help", self)
         self.act_help.setShortcut(QKeySequence.HelpContents)
         self.act_help.setStatusTip("Open the user guide (how menus and panels work)")
@@ -377,6 +386,8 @@ class MainWindow(QMainWindow):
         self.menu_edit.addAction(self.act_paste)
         self.menu_edit.addSeparator()
         self.menu_edit.addAction(self.act_select_all)
+        self.menu_edit.addSeparator()
+        self.menu_edit.addAction(self.act_cards_from_scenes)
 
         self.menu_view = self.menuBar().addMenu("&View")
         self.menu_view.addAction(self.act_toggle_nav)
@@ -867,6 +878,79 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._refresh_card_navigator()
         self.statusBar().showMessage(f"Inserted card template: {label}", 2000)
+
+    def generate_empty_cards_from_scenes(self) -> None:
+        """P3: insert empty [[card: Note]] stubs under scenes that have no cards.
+
+        Notes to the draft — optional scaffolding, not instructions. Scenes that
+        already have at least one linked card are skipped.
+        """
+        scenes = self.editor.list_scene_headings()
+        if not scenes:
+            QMessageBox.information(
+                self,
+                "Generate empty cards",
+                "No scene headings found in this script.\n\n"
+                "Add INT./EXT. (or equivalent) scene headings first.",
+            )
+            return
+
+        cards = self.editor.list_cards()
+        scenes_with_cards = {scene for _bn, _t, _txt, scene in cards}
+        missing = [(bn, heading) for bn, heading in scenes if heading not in scenes_with_cards]
+
+        if not missing:
+            QMessageBox.information(
+                self,
+                "Generate empty cards",
+                "Every scene already has at least one card note.\n\n"
+                "Nothing to insert.",
+            )
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Generate empty cards",
+            f"Insert an empty card note under {len(missing)} scene(s) that have none?\n\n"
+            "These are optional planning notes (not instructions). "
+            "Scenes that already have a card are skipped.\n\n"
+            "Each stub looks like:\n[[card: Note]]",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        # Bottom-up so earlier block numbers stay valid while inserting.
+        inserted = 0
+        for block_number, _heading in reversed(missing):
+            block = self.editor.document().findBlockByNumber(block_number)
+            if not block.isValid():
+                continue
+            cursor = self.editor.textCursor()
+            cursor.setPosition(block.position())
+            cursor.movePosition(cursor.MoveOperation.EndOfBlock)
+            # Leave a blank line under the slugline, then the note stub.
+            cursor.insertText("\n\n[[card: Note]]\n")
+            inserted += 1
+
+        if inserted:
+            self._dirty = True
+            self._update_title()
+            self._refresh_card_navigator()
+            self._refresh_navigator()
+            self._sync_previews(immediate=True)
+            self._update_status()
+            # Show cards panel so the user sees what was added.
+            if not self._cards_visible:
+                self.toggle_card_navigator(True)
+            self.editor.setFocus(Qt.OtherFocusReason)
+            self.statusBar().showMessage(
+                f"Inserted {inserted} empty card note(s) from scenes",
+                4000,
+            )
+        else:
+            self.statusBar().showMessage("No card notes inserted", 3000)
 
     def toggle_split_preview(self, checked: Optional[bool] = None) -> None:
         """

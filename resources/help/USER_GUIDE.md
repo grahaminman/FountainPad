@@ -1,6 +1,6 @@
 # FountainPad — User Guide
 
-**Last updated:** 2026-07-24  
+**Last updated:** 2026-07-24 (P3 empty cards from scenes)  
 **Audience:** someone using the app (not building it)  
 **Honesty rule:** features marked **Partial** work today but are not finished products. If something feels unclear, that is a real UX signal — this guide should explain what to expect.
 
@@ -57,6 +57,7 @@ Standard text editing against the **source editor** (not the preview):
 | Undo / Redo | Editor history |
 | Cut / Copy / Paste | Clipboard |
 | Select All | Select all source text |
+| **Generate Empty Cards from Scenes…** | **Partial (P3).** Optional empty `[[card: Note]]` stubs under scenes that do not already have a card. Confirm dialog first. Notes to the draft — not instructions. Same action as the **From scenes** button on the Index Cards panel. |
 
 ### View
 
@@ -129,6 +130,7 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
 
 - The **Index Cards** panel lists those markers, linked to the nearest scene heading above them.
 - **Goal / Conflict / Turn** buttons insert a template marker at the cursor.
+- **From scenes** (panel) or **Edit → Generate Empty Cards from Scenes…** inserts one empty `[[card: Note]]` under each scene that has **no** card yet. Scenes that already have a card are skipped. You get a confirm dialog first.
 - Click a card in the list to jump to it.
 - Filter box narrows by type, text, or scene.
 
@@ -139,10 +141,11 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
 - No rich per-card fields UI (goal/conflict/turn are insert helpers, not a form).
 - Project `cards.md` is only a **seed file** on disk — not a live two-way pack editor inside the app.
 - One card per marker line; body is a simple following line, not a full freeform card face.
+- “From scenes” does **not** invent summaries — stubs are empty notes for you to fill (or ignore).
 
 ### How you are meant to use it (for now)
 
-While drafting, drop `[[card: …]]` notes near scenes as planning breadcrumbs. Use the panel to jump. Treat this as a **bridge toward** a fuller cards workflow, not the final design.
+While drafting, drop `[[card: …]]` notes near scenes as planning breadcrumbs. Use **From scenes** when you want a blank note under each slugline without typing markers by hand. Use the panel to jump. These are **notes toward the draft**, not a forced outline the script must obey. Treat this as a bridge toward a fuller cards workflow, not the final design.
 
 ---
 
@@ -239,6 +242,7 @@ Mark major plot turns in the script text and jump via the list. Expect a richer 
 | Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z (platform) | Undo / Redo |
 | Ctrl/Cmd+X / C / V | Cut / Copy / Paste |
 | Ctrl/Cmd+A | Select All |
+| — | Generate empty cards from scenes (Edit menu / Index Cards → From scenes) |
 | Ctrl/Cmd+\\ | Scene navigator |
 | Ctrl/Cmd+Shift+C | Index cards |
 | Ctrl/Cmd+Shift+B | Beat board |
