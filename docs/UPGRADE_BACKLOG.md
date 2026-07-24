@@ -63,6 +63,8 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 - [x] In-app Help → `resources/help/USER_GUIDE.md` (living; update with features)
 - [x] Local `build-notes/` gitignored (process ledger off GitHub)
 - [x] P3 empty cards from scenes + Help update (2026-07-24)
+- [x] Cards-first Phase A/B: stable ids, hide notes in preview/PDF, editor dim toggle, Apply card→script (2026-07-24)
+- [ ] Phase C: reorder cards → move scenes
 - [ ] Keep USER_GUIDE honest as cards/beats/project mature
 
 ### A. Distribution & trust (product)
@@ -89,11 +91,11 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 | ID | Feature | Notes | Source |
 |---|---|---|---|
 | C1 | **Index card view** | One card per scene: slugline + summary side + optional script peek | **DONE 2026-07-23** (inline `[[card: Type]]` list + filter + jump; View toggle) |
-| C2 | Drag reorder cards → reorder scenes in Fountain | Hard but high value; careful with dual dialogue/notes | FD / WriterDuet |
+| C2 | Drag reorder cards → reorder scenes in Fountain | Hard but high value; careful with dual dialogue/notes | **OPEN** — Phase C (design in local `build-notes/CARDS_FIRST_DESIGN.md`) |
 | C3 | Color tags (plot A/B, POV, day/night) | Metadata in Fountain notes or sidecar JSON | FD Beat Board habits |
 | C4 | **Beat board** (freeform canvas) | Beats not 1:1 scenes; link beat → scene(s) | **Partial 2026-07-23** — linear list of `[[beat: …]]` + jump (not freeform canvas) |
 | C5 | Outline lane (linear) | Horizontal/vertical sequence of beats; lighter than full board | FD Outline Editor — list UI is a first step via C4 partial |
-| C6 | Card templates | Goal / conflict / turn / image / “must hit” fields | **Partial 2026-07-23** — Goal/Conflict/Turn insert buttons in CardNavigator |
+| C6 | Card templates | Goal / conflict / turn / image / “must hit” fields | **Partial** — Goal/Conflict/Turn + stable ids (2026-07-24) |
 | C7 | Import/export cards as Markdown | Matches OpenClaw `cards/` folder grammar | **Partial 2026-07-23** — project folder seeds `cards.md`; full bidirectional pack still open |
 | C8 | Mind-map lite | Optional links between cards — don’t boil ocean v1 | WriterDuet |
 
@@ -120,7 +122,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 | P1 | **Project folder mode** | Open directory: script + `beats/` + `cards/` + `CANON.md` | **Partial 2026-07-23** — File → Open Project Folder… seeds `canon.md` / `beats.md` / `cards.md` + loads `script.fountain` if present (flat files, not full binder UI) |
 | P2 | Multi-tab or split: script \| canon \| beats | | Our OS |
 | P3 | Generate cards from scene headings | Empty summaries for fill-in | **DONE 2026-07-24** — Edit menu + Index Cards “From scenes”; empty `[[card: Note]]` under scenes with no card; confirm; skips scenes that already have cards; notes-not-instructions framing |
-| P4 | Generate scene skeleton from card | Insert Fountain stub under cursor | Cards → pages |
+| P4 | Generate scene skeleton from card | Insert Fountain stub under cursor | **Partial 2026-07-24** — Apply Card to Script promotes draft slug from card body (first cut); richer skeleton later |
 | P5 | Sequence markers | e.g. sections `## SEQ 01` with progress | Our seq machine |
 | P6 | Constraints checklist panel | Budget/cast/must-hits checkboxes | Magic/Grok lessons |
 

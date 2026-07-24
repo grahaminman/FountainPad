@@ -11,7 +11,7 @@ Write plain-text `.fountain` on the left, see a properly formatted screenplay pr
 - Fountain text editor with monospace font and line numbers
 - Syntax highlighting for scene headings, character cues, dialogue, parentheticals, transitions, sections, notes, and title-page keys
 - **Scene navigator** — list of `INT.`/`EXT.` headings, filter, click to jump (View → Show Scene Navigator)
-- **Index cards** *(partial)* — `[[card: Goal|Conflict|Turn]]` list + template buttons; **From scenes** / Edit → Generate Empty Cards from Scenes (optional empty notes under scenes that have none)
+- **Index cards** *(partial, cards-first)* — `[[card: id=cNNN | …]]` list; Goal/Conflict/Turn; **From scenes**; **Apply card → script** (promote scene heading from card body); stable ids; markers hidden in preview/PDF; optional dim in editor
 - **Beat board (list)** *(partial)* — `[[beat: …]]` markers, filter, jump (View → Show Beat Board)
 - **Project folder** *(partial)* — File → Open Project Folder… seeds `canon.md` / `beats.md` / `cards.md` and loads `script.fountain` when present
 - **Live split preview** (editor | formatted page) with 300ms debounce — show/hide independently
@@ -152,6 +152,7 @@ FountainPad/
 │       └── preview-dark.css
 │   └── help/
 │       └── USER_GUIDE.md      # in-app Help (ships with the app)
+├── cards.py                   # card ids / apply-to-script helpers
 ├── requirements.txt
 ├── README.md
 └── LICENSE

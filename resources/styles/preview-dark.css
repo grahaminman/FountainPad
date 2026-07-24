@@ -14,7 +14,11 @@ body.theme-dark #script {
   box-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
 }
 
-/* Hide Fountain [[notes]] in print/PDF */
+/* Hide Fountain [[notes]] (incl. card/beat markers) on screen + print/PDF */
+.note {
+  display: none !important;
+}
+
 @media print {
   .note {
     display: none !important;

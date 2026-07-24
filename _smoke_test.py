@@ -172,7 +172,8 @@ def main() -> int:
     before = w.editor.toPlainText()
     w._insert_card_template("Turn")
     after = w.editor.toPlainText()
-    assert "[[card: Turn]]" in after
+    assert "[[card:" in after and "Turn" in after
+    assert "id=" in after  # new inserts carry stable ids
     assert after != before
     w._refresh_card_navigator()
     assert any(ct == "Turn" for _, ct, _, _ in w.editor.list_cards())
@@ -240,6 +241,39 @@ def main() -> int:
     assert infos["n"] == 1, infos
     assert len(w.editor.list_cards()) == 3
     print("P3 cards-from-scenes OK", types_by_scene)
+
+    # Phase A: ensure ids + hide markers setting; Phase B: apply card → script
+    import cards as cards_mod
+
+    w.editor.setPlainText(
+        "[[card: Note]]\n"
+        "EXT. YARD - DAY\n"
+        "Dogs bark.\n"
+    )
+    w._dirty = False
+    assigned = w.editor.ensure_card_ids()
+    assert assigned >= 1
+    text_ids = w.editor.toPlainText()
+    assert "id=c" in text_ids
+    infos_a = w.editor.list_card_infos()
+    assert infos_a and infos_a[0].card_id
+    assert "EXT. YARD" in infos_a[0].body
+    # Apply promotes slug above card and keeps note body
+    msg = w.editor.apply_card_to_script(infos_a[0].block_number)
+    applied = w.editor.toPlainText()
+    assert "EXT. YARD - DAY" in applied
+    assert applied.strip().startswith("EXT. YARD"), applied
+    assert "[[card: id=" in applied
+    assert "Dogs bark." in applied
+    # Marker should not appear twice as scene under card
+    scenes = w.editor.list_scene_headings()
+    assert any("YARD" in h for _, h in scenes)
+    w.toggle_card_markers_in_editor(False)
+    assert w.editor._highlighter._hide_card_markers is True
+    w.toggle_card_markers_in_editor(True)
+    light_css = (ROOT / "resources/styles/preview-light.css").read_text(encoding="utf-8")
+    assert ".note" in light_css and "display: none" in light_css
+    print("Phase A/B cards OK", msg, scenes)
 
     # Project folder seeds
     with tempfile.TemporaryDirectory() as td:

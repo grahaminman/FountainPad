@@ -191,6 +191,7 @@ class MainWindow(QMainWindow):
         self.card_navigator.generateFromScenesRequested.connect(
             self.generate_empty_cards_from_scenes
         )
+        self.card_navigator.applyCardRequested.connect(self.apply_card_to_script)
         self.beat_board.beatActivated.connect(self._on_beat_activated)
 
         # Debounce navigator rebuild while typing (cheap, but no need every keystroke).
@@ -349,6 +350,27 @@ class MainWindow(QMainWindow):
         )
         self.act_cards_from_scenes.triggered.connect(self.generate_empty_cards_from_scenes)
 
+        self.act_apply_card = QAction("&Apply Card to Script", self)
+        self.act_apply_card.setShortcut(QKeySequence("Ctrl+Shift+A"))
+        self.act_apply_card.setStatusTip(
+            "Promote scene heading from the selected card into the screenplay"
+        )
+        self.act_apply_card.triggered.connect(self.apply_selected_card_to_script)
+
+        self.act_ensure_card_ids = QAction("Ensure Card &IDs", self)
+        self.act_ensure_card_ids.setStatusTip(
+            "Assign stable id=cNNN to card markers that do not have one yet"
+        )
+        self.act_ensure_card_ids.triggered.connect(self.ensure_card_ids)
+
+        self.act_show_card_markers = QAction("Show Card &Markers in Editor", self)
+        self.act_show_card_markers.setCheckable(True)
+        self.act_show_card_markers.setChecked(True)
+        self.act_show_card_markers.setStatusTip(
+            "When off, dim [[card: …]] lines in the editor (still saved; never in preview/PDF)"
+        )
+        self.act_show_card_markers.triggered.connect(self.toggle_card_markers_in_editor)
+
         self.act_help = QAction("FountainPad &Help", self)
         self.act_help.setShortcut(QKeySequence.HelpContents)
         self.act_help.setStatusTip("Open the user guide (how menus and panels work)")
@@ -388,6 +410,8 @@ class MainWindow(QMainWindow):
         self.menu_edit.addAction(self.act_select_all)
         self.menu_edit.addSeparator()
         self.menu_edit.addAction(self.act_cards_from_scenes)
+        self.menu_edit.addAction(self.act_apply_card)
+        self.menu_edit.addAction(self.act_ensure_card_ids)
 
         self.menu_view = self.menuBar().addMenu("&View")
         self.menu_view.addAction(self.act_toggle_nav)
@@ -397,6 +421,8 @@ class MainWindow(QMainWindow):
         self.menu_view.addAction(self.act_toggle_preview)
         self.menu_view.addAction(self.act_detach)
         self.menu_view.addAction(self.act_reattach)
+        self.menu_view.addSeparator()
+        self.menu_view.addAction(self.act_show_card_markers)
         self.menu_view.addSeparator()
         self.menu_view.addAction(self.act_dark)
 
@@ -771,15 +797,15 @@ class MainWindow(QMainWindow):
         self.navigator.highlight_block(block_no)
 
     def _refresh_card_navigator(self) -> None:
-        cards = self.editor.list_cards()
-        self.card_navigator.set_cards(cards)
+        infos = self.editor.list_card_infos()
+        self.card_navigator.set_card_infos(infos)
         block_no = self.editor.textCursor().blockNumber()
         # Highlight the card nearest to the cursor
-        if cards:
+        if infos:
             target_block = -1
-            for block_number, _, _, _ in cards:
-                if block_number <= block_no:
-                    target_block = block_number
+            for info in infos:
+                if info.block_number <= block_no:
+                    target_block = info.block_number
                 else:
                     break
             if target_block >= 0:
@@ -864,9 +890,9 @@ class MainWindow(QMainWindow):
         self._update_status()
 
     def _insert_card_template(self, card_type: str) -> None:
-        """Insert a [[card: Type]] stub at the cursor and refresh the card list."""
-        label = (card_type or "Card").strip() or "Card"
-        stub = f"[[card: {label}]]\n"
+        """Insert a [[card: id=… | Type]] stub at the cursor and refresh the card list."""
+        label = (card_type or "Note").strip() or "Note"
+        stub = self.editor.format_new_card_marker(label) + "\n"
         cursor = self.editor.textCursor()
         if cursor.positionInBlock() > 0 and not cursor.atBlockStart():
             cursor.movePosition(cursor.MoveOperation.EndOfBlock)
@@ -878,6 +904,75 @@ class MainWindow(QMainWindow):
         self._update_title()
         self._refresh_card_navigator()
         self.statusBar().showMessage(f"Inserted card template: {label}", 2000)
+
+    def ensure_card_ids(self) -> None:
+        """Assign stable ids to any card markers missing id=."""
+        assigned = self.editor.ensure_card_ids()
+        if assigned:
+            self._dirty = True
+            self._update_title()
+            self._refresh_card_navigator()
+            self._sync_previews(immediate=True)
+            self.statusBar().showMessage(f"Assigned {assigned} card id(s)", 3000)
+        else:
+            self.statusBar().showMessage("All card markers already have ids", 2500)
+
+    def toggle_card_markers_in_editor(self, checked: Optional[bool] = None) -> None:
+        """Show or dim [[card:]] lines in the editor only (file unchanged)."""
+        if checked is None:
+            checked = self.act_show_card_markers.isChecked()
+        else:
+            self.act_show_card_markers.setChecked(checked)
+        # checked True = show markers; hide when unchecked
+        self.editor.set_hide_card_markers(not bool(checked))
+        self.statusBar().showMessage(
+            "Card markers visible in editor"
+            if checked
+            else "Card markers dimmed in editor (still in file; never in preview/PDF)",
+            3000,
+        )
+
+    def apply_selected_card_to_script(self) -> None:
+        """Apply the card selected in the Index Cards list."""
+        item = self.card_navigator._list.currentItem()
+        if item is None:
+            infos = self.editor.list_card_infos()
+            if not infos:
+                QMessageBox.information(
+                    self,
+                    "Apply card to script",
+                    "No cards in this script.\n\n"
+                    "Add a card first (Goal/Conflict/Turn, From scenes, or type [[card: …]]).",
+                )
+                return
+            # Use card nearest cursor
+            block_no = self.editor.textCursor().blockNumber()
+            target = infos[0]
+            for info in infos:
+                if info.block_number <= block_no:
+                    target = info
+                else:
+                    break
+            self.apply_card_to_script(target.block_number)
+            return
+        self.apply_card_to_script(int(item.data(Qt.UserRole)))
+
+    def apply_card_to_script(self, card_block: int) -> None:
+        """Phase B first cut: promote draft slug from card body into the screenplay."""
+        before = self.editor.toPlainText()
+        message = self.editor.apply_card_to_script(int(card_block))
+        after = self.editor.toPlainText()
+        if after != before:
+            self._dirty = True
+            self._update_title()
+            self._refresh_card_navigator()
+            self._refresh_navigator()
+            self._sync_previews(immediate=True)
+            self._update_status()
+            if not self._cards_visible:
+                self.toggle_card_navigator(True)
+        self.statusBar().showMessage(message or "Apply card finished", 5000)
+        self.editor.setFocus(Qt.OtherFocusReason)
 
     def generate_empty_cards_from_scenes(self) -> None:
         """P3: insert empty [[card: Note]] stubs under scenes that have no cards.
@@ -914,7 +1009,7 @@ class MainWindow(QMainWindow):
             f"Insert an empty card note under {len(missing)} scene(s) that have none?\n\n"
             "These are optional planning notes (not instructions). "
             "Scenes that already have a card are skipped.\n\n"
-            "Each stub looks like:\n[[card: Note]]",
+            "Each stub looks like:\n[[card: id=cNNN | Note]]",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes,
         )
@@ -930,8 +1025,9 @@ class MainWindow(QMainWindow):
             cursor = self.editor.textCursor()
             cursor.setPosition(block.position())
             cursor.movePosition(cursor.MoveOperation.EndOfBlock)
-            # Leave a blank line under the slugline, then the note stub.
-            cursor.insertText("\n\n[[card: Note]]\n")
+            # Leave a blank line under the slugline, then an id'd note stub.
+            marker = self.editor.format_new_card_marker("Note")
+            cursor.insertText(f"\n\n{marker}\n")
             inserted += 1
 
         if inserted:
@@ -1405,6 +1501,10 @@ class MainWindow(QMainWindow):
         self._beats_visible = str(beats).lower() in ("1", "true", "yes")
         self.act_toggle_beats.setChecked(self._beats_visible)
         self.beat_board.setVisible(self._beats_visible)
+        show_markers = s.value("showCardMarkers", True)
+        show_markers_b = str(show_markers).lower() in ("1", "true", "yes")
+        self.act_show_card_markers.setChecked(show_markers_b)
+        self.editor.set_hide_card_markers(not show_markers_b)
         if self._nav_visible or self._cards_visible or self._beats_visible:
             self._ensure_main_splitter_sizes()
 
@@ -1424,6 +1524,7 @@ class MainWindow(QMainWindow):
         s.setValue("navVisible", self._nav_visible)
         s.setValue("cardsVisible", self._cards_visible)
         s.setValue("beatsVisible", self._beats_visible)
+        s.setValue("showCardMarkers", self.act_show_card_markers.isChecked())
 
     def closeEvent(self, event: QCloseEvent) -> None:  # noqa: N802
         if not self._maybe_save():

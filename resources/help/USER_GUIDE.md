@@ -1,6 +1,6 @@
 # FountainPad — User Guide
 
-**Last updated:** 2026-07-24 (P3 empty cards from scenes)  
+**Last updated:** 2026-07-24 (cards-first A/B: ids, hide, apply)  
 **Audience:** someone using the app (not building it)  
 **Honesty rule:** features marked **Partial** work today but are not finished products. If something feels unclear, that is a real UX signal — this guide should explain what to expect.
 
@@ -57,7 +57,9 @@ Standard text editing against the **source editor** (not the preview):
 | Undo / Redo | Editor history |
 | Cut / Copy / Paste | Clipboard |
 | Select All | Select all source text |
-| **Generate Empty Cards from Scenes…** | **Partial (P3).** Optional empty `[[card: Note]]` stubs under scenes that do not already have a card. Confirm dialog first. Notes to the draft — not instructions. Same action as the **From scenes** button on the Index Cards panel. |
+| **Generate Empty Cards from Scenes…** | **Partial (P3).** Optional empty card stubs under scenes with no card yet. Confirm first. Same as **From scenes** on the Index Cards panel. |
+| **Apply Card to Script** | **Partial (Phase B).** If the card’s first body line is a scene heading (`INT.`/`EXT.`…), insert or update that slugline in the script; remaining lines stay as notes under the marker. Explicit action — not a silent compile. Ctrl/Cmd+Shift+A. |
+| **Ensure Card IDs** | Assign stable `id=cNNN` on markers that do not have one yet. |
 
 ### View
 
@@ -69,6 +71,7 @@ Standard text editing against the **source editor** (not the preview):
 | **Show Split Preview** | Show/hide the **in-window** preview pane only. Independent of a detached window. |
 | **Detach Preview Window** | Open a **second** live preview in its own window. Does not remove the split preview. If already detached, focuses that window. |
 | **Reattach Preview** | Close the floating preview **and** turn the split preview **on** so you are not left without a preview. |
+| **Show Card Markers in Editor** | When **on** (default), `[[card: …]]` lines are easy to see in the source. When **off**, those lines are **dimmed** in the editor only (still saved). Card/note markers **never** show in the formatted **preview** or **PDF**. |
 | **Dark Mode** | Toggle dark theme for editor chrome and preview. |
 
 ### Help
@@ -116,36 +119,43 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
 
 ### What works today
 
-- Markers in the script of the form:
+- Markers in the script (stable ids preferred):
 
   ```fountain
-  [[card: Goal]]
-  Optional body line under the marker.
+  [[card: id=c001 | Note]]
+  EXT. YARD - DAY
+  Dogs bark. Optional planning notes.
 
-  [[card: Conflict]]
-  Something goes wrong.
-
-  [[card: Turn]]
+  [[card: id=c002 | Goal]]
+  Get the files.
   ```
 
-- The **Index Cards** panel lists those markers, linked to the nearest scene heading above them.
-- **Goal / Conflict / Turn** buttons insert a template marker at the cursor.
-- **From scenes** (panel) or **Edit → Generate Empty Cards from Scenes…** inserts one empty `[[card: Note]]` under each scene that has **no** card yet. Scenes that already have a card are skipped. You get a confirm dialog first.
-- Click a card in the list to jump to it.
-- Filter box narrows by type, text, or scene.
+  Legacy markers without `id=` still work; **Edit → Ensure Card IDs** (or new inserts) adds `id=cNNN`.
+
+- The **Index Cards** panel lists markers (with id), linked to the nearest scene heading above them when one exists.
+- **Goal / Conflict / Turn** insert a new id’d marker at the cursor.
+- **From scenes** / **Edit → Generate Empty Cards from Scenes…** — empty id’d notes under scenes that have none.
+- **Apply** (panel) or **Edit → Apply Card to Script** — if the first body line is a scene heading, **insert or update** that slugline in the screenplay; remaining body stays under the card as notes. Explicit button — not automatic.
+- **View → Show Card Markers in Editor** — dim markers in the source without deleting them.
+- Preview and PDF **hide** Fountain notes (including card markers).
+- Click a card to jump; filter by id/type/text/scene.
 
 ### What is *not* finished
 
-- Cards are **markers inside the Fountain file**, not a separate visual card canvas.
-- No drag-to-reorder scenes from cards yet.
-- No rich per-card fields UI (goal/conflict/turn are insert helpers, not a form).
-- Project `cards.md` is only a **seed file** on disk — not a live two-way pack editor inside the app.
-- One card per marker line; body is a simple following line, not a full freeform card face.
-- “From scenes” does **not** invent summaries — stubs are empty notes for you to fill (or ignore).
+- **Reorder cards to move scenes** (Phase C) — not built yet.
+- No separate visual card canvas; markers live in the Fountain file.
+- No rich form UI per card (still plain text under the marker).
+- Project `cards.md` is still only a seed file (not live two-way pack sync).
+- Apply does not rewrite dialogue/action already under a scene beyond promoting the slug + keeping card notes.
 
-### How you are meant to use it (for now)
+### How you are meant to use it (for now) — cards first
 
-While drafting, drop `[[card: …]]` notes near scenes as planning breadcrumbs. Use **From scenes** when you want a blank note under each slugline without typing markers by hand. Use the panel to jump. These are **notes toward the draft**, not a forced outline the script must obey. Treat this as a bridge toward a fuller cards workflow, not the final design.
+1. Capture an idea on a card (optionally start the body with `INT.`/`EXT.` …).  
+2. **Apply** when you want that slugline in the script.  
+3. Keep filling notes on the card; write pages under the scene when ready.  
+4. Use **From scenes** only when scenes already exist and you want empty note stubs.
+
+These are **notes toward the draft**, not instructions the script must obey.
 
 ---
 
@@ -242,7 +252,9 @@ Mark major plot turns in the script text and jump via the list. Expect a richer 
 | Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z (platform) | Undo / Redo |
 | Ctrl/Cmd+X / C / V | Cut / Copy / Paste |
 | Ctrl/Cmd+A | Select All |
-| — | Generate empty cards from scenes (Edit menu / Index Cards → From scenes) |
+| — | Generate empty cards from scenes (Edit / From scenes) |
+| Ctrl/Cmd+Shift+A | Apply selected card to script |
+| — | Ensure card ids (Edit menu) |
 | Ctrl/Cmd+\\ | Scene navigator |
 | Ctrl/Cmd+Shift+C | Index cards |
 | Ctrl/Cmd+Shift+B | Beat board |

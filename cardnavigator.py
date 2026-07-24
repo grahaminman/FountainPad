@@ -45,6 +45,7 @@ class CardNavigator(QWidget):
     cardActivated = Signal(int)  # document block number
     cardTemplateRequested = Signal(str)  # card_type (e.g., "Goal")
     generateFromScenesRequested = Signal()  # P3: empty note stubs per scene
+    applyCardRequested = Signal(int)  # Phase B: apply card → script
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -62,6 +63,7 @@ class CardNavigator(QWidget):
         self._btn_conflict = self._make_template_button("Conflict")
         self._btn_turn = self._make_template_button("Turn")
         self._btn_from_scenes = self._make_from_scenes_button()
+        self._btn_apply = self._make_apply_button()
 
         self._filter = QLineEdit()
         self._filter.setPlaceholderText("Filter cards…")
@@ -84,6 +86,7 @@ class CardNavigator(QWidget):
         header.addWidget(self._btn_conflict)
         header.addWidget(self._btn_turn)
         header.addWidget(self._btn_from_scenes)
+        header.addWidget(self._btn_apply)
         header.addStretch(1)
         header.addWidget(self._count)
 
@@ -95,6 +98,7 @@ class CardNavigator(QWidget):
         layout.addWidget(self._list, 1)
 
         self._all_cards: list[tuple[int, str, str, str]] = []
+        self._all_infos: list = []
         self._updating = False
 
     def _make_template_button(self, card_type: str) -> QWidget:
@@ -125,9 +129,45 @@ class CardNavigator(QWidget):
         btn.clicked.connect(self.generateFromScenesRequested.emit)
         return btn
 
+    def _make_apply_button(self):
+        from PySide6.QtWidgets import QToolButton
+
+        btn = QToolButton()
+        btn.setText("Apply")
+        btn.setToolTip(
+            "Apply selected card to the script: if the first body line is a "
+            "scene heading (INT./EXT.…), insert or update that slugline. "
+            "Notes stay as card notes — not a forced compile."
+        )
+        btn.setAutoRaise(True)
+        btn.clicked.connect(self._emit_apply)
+        return btn
+
+    def _emit_apply(self) -> None:
+        item = self._list.currentItem()
+        if item is None:
+            return
+        block_number = int(item.data(Qt.UserRole))
+        self.applyCardRequested.emit(block_number)
+
     def set_cards(self, cards: list[tuple[int, str, str, str]]) -> None:
         """Replace card list. cards = [(block_number, card_type, card_text, scene_heading), ...]."""
         self._all_cards = list(cards)
+        self._rebuild_list()
+
+    def set_card_infos(self, infos) -> None:
+        """Preferred: list of CardInfo (ids + richer labels)."""
+        self._all_infos = list(infos or [])
+        # Keep tuple cache for filter fallback
+        self._all_cards = [
+            (
+                i.block_number,
+                i.card_type,
+                (i.body.splitlines()[0] if i.body else ""),
+                i.scene_heading,
+            )
+            for i in self._all_infos
+        ]
         self._rebuild_list()
 
     def apply_theme(self, dark: bool) -> None:
@@ -243,17 +283,40 @@ class CardNavigator(QWidget):
         self._updating = True
         self._list.clear()
         shown = 0
-        for block_number, card_type, card_text, scene_heading in self._all_cards:
+        if self._all_infos:
+            rows = []
+            for info in self._all_infos:
+                label = info.display_label()
+                rows.append(
+                    (
+                        info.block_number,
+                        label,
+                        info.scene_heading,
+                        info.card_id,
+                        info.body,
+                    )
+                )
+        else:
+            rows = [
+                (bn, f"{ctype}: {ctext}", scene, "", ctext)
+                for bn, ctype, ctext, scene in self._all_cards
+            ]
+        for block_number, label, scene_heading, card_id, body in rows:
             if needle:
-                search_text = f"{card_type} {card_text} {scene_heading}".lower()
+                search_text = f"{label} {scene_heading} {card_id} {body}".lower()
                 if needle not in search_text:
                     continue
-            item = QListWidgetItem(f"{card_type}: {card_text}")
+            item = QListWidgetItem(label)
             item.setData(Qt.UserRole, block_number)
-            item.setToolTip(f"Scene: {scene_heading}\nLine {block_number + 1}")
+            tip = f"Scene: {scene_heading}\nLine {block_number + 1}"
+            if card_id:
+                tip = f"id={card_id}\n" + tip
+            if body:
+                tip += f"\n\n{body[:400]}"
+            item.setToolTip(tip)
             self._list.addItem(item)
             shown += 1
-        total = len(self._all_cards)
+        total = len(rows)
         if needle:
             self._count.setText(f"{shown}/{total} cards")
         else:

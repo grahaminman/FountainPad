@@ -38,11 +38,14 @@ from PySide6.QtGui import (
     QFont,
     QSyntaxHighlighter,
     QTextCharFormat,
+    QTextCursor,
     QTextDocument,
     QTextFormat,
     QTextOption,
 )
 from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
+
+import cards as cards_mod
 
 
 class FountainHighlighter(QSyntaxHighlighter):
@@ -51,12 +54,22 @@ class FountainHighlighter(QSyntaxHighlighter):
     def __init__(self, document: QTextDocument, dark: bool = False) -> None:
         super().__init__(document)
         self._dark = dark
+        self._hide_card_markers = False
         self._rebuild_formats()
 
     def set_dark(self, dark: bool) -> None:
         if self._dark == dark:
             return
         self._dark = dark
+        self._rebuild_formats()
+        self.rehighlight()
+
+    def set_hide_card_markers(self, hide: bool) -> None:
+        """Dim [[card: …]] lines in the editor (markers stay in the file)."""
+        hide = bool(hide)
+        if getattr(self, "_hide_card_markers", False) == hide:
+            return
+        self._hide_card_markers = hide
         self._rebuild_formats()
         self.rehighlight()
 
@@ -70,6 +83,7 @@ class FountainHighlighter(QSyntaxHighlighter):
         return f
 
     def _rebuild_formats(self) -> None:
+        hide_cards = getattr(self, "_hide_card_markers", False)
         if self._dark:
             self.fmt_scene = self._fmt("#7eb6ff", bold=True)
             self.fmt_character = self._fmt("#f0c674", bold=True)
@@ -79,6 +93,8 @@ class FountainHighlighter(QSyntaxHighlighter):
             self.fmt_section = self._fmt("#b294bb", bold=True)
             self.fmt_synopsis = self._fmt("#8abeb7", italic=True)
             self.fmt_note = self._fmt("#969896", italic=True)
+            # Near-background when hiding card markers in the editor only.
+            self.fmt_card_marker = self._fmt("#2a2a2a" if hide_cards else "#9a86fd", italic=True)
             self.fmt_title_key = self._fmt("#81a2be", bold=True)
             self.fmt_boneyard = self._fmt("#5a5f66", italic=True)
             self.fmt_page_break = self._fmt("#969896")
@@ -91,6 +107,7 @@ class FountainHighlighter(QSyntaxHighlighter):
             self.fmt_section = self._fmt("#6a1b9a", bold=True)
             self.fmt_synopsis = self._fmt("#00695c", italic=True)
             self.fmt_note = self._fmt("#6d6d6d", italic=True)
+            self.fmt_card_marker = self._fmt("#f0f0f0" if hide_cards else "#5c4bb6", italic=True)
             self.fmt_title_key = self._fmt("#1565c0", bold=True)
             self.fmt_boneyard = self._fmt("#9e9e9e", italic=True)
             self.fmt_page_break = self._fmt("#757575")
@@ -156,7 +173,10 @@ class FountainHighlighter(QSyntaxHighlighter):
             return
 
         if self.re_note.match(text):
-            self.setFormat(0, len(text), self.fmt_note)
+            if text.lstrip().lower().startswith("[[card:"):
+                self.setFormat(0, len(text), self.fmt_card_marker)
+            else:
+                self.setFormat(0, len(text), self.fmt_note)
             self.setCurrentBlockState(0)
             return
 
@@ -387,69 +407,64 @@ class FountainEditor(QPlainTextEdit):
             block = block.previous()
         return ""
 
+    def list_card_infos(self) -> list[cards_mod.CardInfo]:
+        """Parse [[card: …]] markers via cards.py (ids, body, parent scene)."""
+        return cards_mod.list_cards_from_text(
+            self.toPlainText(),
+            self.is_scene_heading,
+        )
+
     def list_cards(self) -> list[tuple[int, str, str, str]]:
         """
-        Parse Fountain for [[card: Type]] blocks and link to nearest scene.
-        Returns: [(block_number, card_type, card_text, scene_heading), ...]
-        
-        Handles:
-          - Nested brackets: [[card: Goal (Midpoint)]]
-          - Malformed cards: [[card:Goal]] (no space after colon)
-          - Valid card types: Goal, Conflict, Turn, or custom
+        Compatibility tuple for the navigator:
+        (block_number, card_type, card_text, scene_heading).
+
+        card_text is a short body preview (first line).
+        Prefer list_card_infos() for full CardInfo (ids, multi-line body).
         """
-        cards: list[tuple[int, str, str, str]] = []
-        scene_heading = "Untitled Scene"
-        block = self.document().firstBlock()
-        while block.isValid():
-            text = block.text().strip()
-            if self.is_scene_heading(text):
-                scene_heading = text
-            elif text.startswith("[[card:") and text.endswith("]]"):
-                # Extract inner text: [[card: Goal]] → "Goal"
-                # [[card: Goal (Midpoint)]] → "Goal (Midpoint)"
-                inner = text[len("[[card:") : -2].strip()
-                card_type = "Card"
-                card_text = ""
+        out: list[tuple[int, str, str, str]] = []
+        for info in self.list_card_infos():
+            preview = info.body.splitlines()[0] if info.body else ""
+            out.append((info.block_number, info.card_type, preview, info.scene_heading))
+        return out
 
-                valid_types = {"Goal", "Conflict", "Turn"}
+    def ensure_card_ids(self) -> int:
+        """Assign missing id=cNNN on card markers. Returns how many assigned."""
+        text = self.toPlainText()
+        new_text, assigned = cards_mod.ensure_ids_in_text(text, self.is_scene_heading)
+        if assigned and new_text != text:
+            self._replace_all_text(new_text)
+        return assigned
 
-                # Prefer known types as the first token; otherwise keep full label.
-                if not inner:
-                    card_type = "Card"
-                    card_text = ""
-                else:
-                    first, _, rest = inner.partition(" ")
-                    # Malformed "Type: detail" after the marker colon.
-                    if ":" in first:
-                        left, _, right = first.partition(":")
-                        first = left.strip() or first
-                        rest = f"{right.strip()} {rest}".strip()
-                    if first in valid_types:
-                        card_type = first
-                        card_text = rest.strip()
-                    elif rest:
-                        card_type = first
-                        card_text = rest.strip()
-                    else:
-                        # Single token: known type or custom type name.
-                        card_type = first if first else "Card"
-                        card_text = ""
+    def apply_card_to_script(self, card_block: int) -> str:
+        """Phase B: promote draft scene slug from card body into the script."""
+        text = self.toPlainText()
+        new_text, message = cards_mod.apply_card_to_script_text(
+            text,
+            card_block,
+            self.is_scene_heading,
+        )
+        if new_text != text:
+            self._replace_all_text(new_text)
+        return message
 
-                # Optional body on the following non-heading, non-marker line.
-                next_block = block.next()
-                if next_block.isValid():
-                    next_text = next_block.text().strip()
-                    if (
-                        next_text
-                        and not self.is_scene_heading(next_text)
-                        and not next_text.startswith("[[card:")
-                        and not next_text.startswith("[[beat:")
-                    ):
-                        card_text = f"{card_text} {next_text}".strip() if card_text else next_text
+    def format_new_card_marker(self, card_type: str = "Note") -> str:
+        """Marker line with a fresh id (does not mutate the document)."""
+        existing = {c.card_id for c in self.list_card_infos() if c.card_id}
+        cid = cards_mod.next_card_id(existing)
+        return cards_mod.format_card_marker(cid, card_type or "Note")
 
-                cards.append((block.blockNumber(), card_type, card_text, scene_heading))
-            block = block.next()
-        return cards
+    def set_hide_card_markers(self, hide: bool) -> None:
+        self._highlighter.set_hide_card_markers(hide)
+
+    def _replace_all_text(self, new_text: str) -> None:
+        """Replace document text in one edit block (supports undo)."""
+        cursor = self.textCursor()
+        cursor.beginEditBlock()
+        cursor.select(QTextCursor.Document)
+        cursor.insertText(new_text)
+        cursor.endEditBlock()
+        self.setTextCursor(cursor)
 
     def list_beats(self) -> list[tuple[int, str, str, str]]:
         """
