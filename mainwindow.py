@@ -192,6 +192,8 @@ class MainWindow(QMainWindow):
             self.generate_empty_cards_from_scenes
         )
         self.card_navigator.applyCardRequested.connect(self.apply_card_to_script)
+        self.card_navigator.saveCardRequested.connect(self.save_card_from_panel)
+        self.card_navigator.setActiveVersionRequested.connect(self.set_card_active_version)
         self.beat_board.beatActivated.connect(self._on_beat_activated)
 
         # Debounce navigator rebuild while typing (cheap, but no need every keystroke).
@@ -958,9 +960,26 @@ class MainWindow(QMainWindow):
         self.apply_card_to_script(int(item.data(Qt.UserRole)))
 
     def apply_card_to_script(self, card_block: int) -> None:
-        """Phase B first cut: promote draft slug from card body into the screenplay."""
+        """Apply active card version: scene heading + leading action only (never dialogue)."""
         before = self.editor.toPlainText()
-        message = self.editor.apply_card_to_script(int(card_block))
+        # Prefer panel working text + snapshot so left-side edits win on Apply.
+        info = None
+        for c in self.editor.list_card_infos():
+            if c.block_number == int(card_block):
+                info = c
+                break
+        if info is not None and self.card_navigator.current_block() == int(card_block):
+            versions = list(info.versions) if info.versions else []
+            message = self.editor.apply_card_with_panel_state(
+                int(card_block),
+                info.card_id or "",
+                self.card_navigator.working_type(),
+                versions,
+                info.active_version or "v1",
+                do_snapshot_from=self.card_navigator.working_text(),
+            )
+        else:
+            message = self.editor.apply_card_to_script(int(card_block))
         after = self.editor.toPlainText()
         if after != before:
             self._dirty = True
@@ -973,6 +992,70 @@ class MainWindow(QMainWindow):
                 self.toggle_card_navigator(True)
         self.statusBar().showMessage(message or "Apply card finished", 5000)
         self.editor.setFocus(Qt.OtherFocusReason)
+
+    def save_card_from_panel(
+        self,
+        card_block: int,
+        card_id: str,
+        card_type: str,
+        versions,
+        active: str,
+        make_snapshot: bool,
+    ) -> None:
+        """Write card detail/versions from the Index Cards panel into the Fountain file."""
+        del make_snapshot  # versions already snapshotted by the panel when requested
+        before = self.editor.toPlainText()
+        # Ensure id exists
+        if not card_id:
+            existing = {c.card_id for c in self.editor.list_card_infos() if c.card_id}
+            import cards as cards_mod
+
+            card_id = cards_mod.next_card_id(existing)
+        message = self.editor.write_card_block(
+            int(card_block),
+            card_id,
+            card_type or "Note",
+            versions,
+            active or "v1",
+        )
+        after = self.editor.toPlainText()
+        if after != before:
+            self._dirty = True
+            self._update_title()
+            self._refresh_card_navigator()
+            self._sync_previews(immediate=True)
+        self.statusBar().showMessage(message or "Card saved", 3000)
+
+    def set_card_active_version(self, card_block: int, version_id: str) -> None:
+        """Make a historical version the active (top priority) version on a card."""
+        infos = self.editor.list_card_infos()
+        info = next((c for c in infos if c.block_number == int(card_block)), None)
+        if info is None:
+            self.statusBar().showMessage("Card not found", 2500)
+            return
+        import cards as cards_mod
+
+        versions = list(info.versions) if info.versions else [cards_mod.CardVersion("v1", info.body)]
+        versions, active, msg = cards_mod.set_active_version(versions, version_id)
+        card_id = info.card_id or ""
+        if not card_id:
+            existing = {c.card_id for c in infos if c.card_id}
+            card_id = cards_mod.next_card_id(existing)
+        before = self.editor.toPlainText()
+        self.editor.write_card_block(
+            int(card_block),
+            card_id,
+            info.card_type or "Note",
+            versions,
+            active,
+        )
+        after = self.editor.toPlainText()
+        if after != before:
+            self._dirty = True
+            self._update_title()
+            self._refresh_card_navigator()
+            self._sync_previews(immediate=True)
+        self.statusBar().showMessage(msg or f"Active {active}", 3000)
 
     def generate_empty_cards_from_scenes(self) -> None:
         """P3: insert empty [[card: Note]] stubs under scenes that have no cards.

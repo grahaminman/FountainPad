@@ -1,6 +1,6 @@
 # FountainPad — User Guide
 
-**Last updated:** 2026-07-24 (cards-first A/B: ids, hide, apply)  
+**Last updated:** 2026-07-24 (editable cards + versions; apply action only)  
 **Audience:** someone using the app (not building it)  
 **Honesty rule:** features marked **Partial** work today but are not finished products. If something feels unclear, that is a real UX signal — this guide should explain what to expect.
 
@@ -58,7 +58,7 @@ Standard text editing against the **source editor** (not the preview):
 | Cut / Copy / Paste | Clipboard |
 | Select All | Select all source text |
 | **Generate Empty Cards from Scenes…** | **Partial (P3).** Optional empty card stubs under scenes with no card yet. Confirm first. Same as **From scenes** on the Index Cards panel. |
-| **Apply Card to Script** | **Partial (Phase B).** If the card’s first body line is a scene heading (`INT.`/`EXT.`…), insert or update that slugline in the script; remaining lines stay as notes under the marker. Explicit action — not a silent compile. Ctrl/Cmd+Shift+A. |
+| **Apply Card to Script** | **Partial.** Pushes the **active card version** into the screenplay: scene heading + **leading action only**. **Dialogue is never changed.** Explicit action — not a silent compile. Ctrl/Cmd+Shift+A. |
 | **Ensure Card IDs** | Assign stable `id=cNNN` on markers that do not have one yet. |
 
 ### View
@@ -119,41 +119,45 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
 
 ### What works today
 
-- Markers in the script (stable ids preferred):
+- **Editable card on the left:** select a card → edit type and full text in the **Card detail** pane (not only in the script).
+- Markers in the Fountain file (stable ids + optional versions):
 
   ```fountain
-  [[card: id=c001 | Note]]
+  [[card: id=c001 | Note | active=v2]]
+  @v1
   EXT. YARD - DAY
-  Dogs bark. Optional planning notes.
-
-  [[card: id=c002 | Goal]]
-  Get the files.
+  Dogs bark.
+  @v2
+  EXT. YARD - DUSK
+  Dogs go quiet.
   ```
 
-  Legacy markers without `id=` still work; **Edit → Ensure Card IDs** (or new inserts) adds `id=cNNN`.
+  Single-version cards stay simple (no `@vN` until you save a second version).
 
-- The **Index Cards** panel lists markers (with id), linked to the nearest scene heading above them when one exists.
-- **Goal / Conflict / Turn** insert a new id’d marker at the cursor.
-- **From scenes** / **Edit → Generate Empty Cards from Scenes…** — empty id’d notes under scenes that have none.
-- **Apply** (panel) or **Edit → Apply Card to Script** — if the first body line is a scene heading, **insert or update** that slugline in the screenplay; remaining body stays under the card as notes. Explicit button — not automatic.
-- **View → Show Card Markers in Editor** — dim markers in the source without deleting them.
-- Preview and PDF **hide** Fountain notes (including card markers).
-- Click a card to jump; filter by id/type/text/scene.
+- **Versions (primitive progress):**
+  - **Save** — write editor text into the **active** version.
+  - **Save ver** — if the text changed, append a **new** version and make it active (keeps older ones).
+  - Version list shows history; **Load** puts an old version in the editor; **Make top** (or double-click) sets that version as active.
+  - **Apply** snapshots changed text if needed, then pushes the **active** version to the script.
+- **Apply rules (important):** updates **scene heading** + **leading action** only. **Character cues and dialogue are never modified.** You can still edit anything in the script afterward.
+- **Goal / Conflict / Turn**, **From scenes**, stable ids, preview/PDF hide markers, editor dim toggle — as before.
+- Click a card to jump the script; filter by id/type/text/scene.
 
 ### What is *not* finished
 
 - **Reorder cards to move scenes** (Phase C) — not built yet.
-- No separate visual card canvas; markers live in the Fountain file.
-- No rich form UI per card (still plain text under the marker).
-- Project `cards.md` is still only a seed file (not live two-way pack sync).
-- Apply does not rewrite dialogue/action already under a scene beyond promoting the slug + keeping card notes.
+- No separate visual corkboard; storage is still inside the Fountain file.
+- Apply does not rewrite dialogue (by design) and does not replace a whole scene body.
+- Project `cards.md` is still only a seed file (not live pack sync).
+- Version UI is primitive (no timestamps/authors).
 
 ### How you are meant to use it (for now) — cards first
 
-1. Capture an idea on a card (optionally start the body with `INT.`/`EXT.` …).  
-2. **Apply** when you want that slugline in the script.  
-3. Keep filling notes on the card; write pages under the scene when ready.  
-4. Use **From scenes** only when scenes already exist and you want empty note stubs.
+1. Capture / edit the idea **on the left** (first line can be `INT.`/`EXT.` …; rest = action notes).  
+2. **Save ver** when you want a progress snapshot.  
+3. **Apply** when you want that active version’s slug + action on the page (dialogue stays yours).  
+4. To roll back an idea: **Make top** on an older version → **Apply** again (or copy from the version tooltip/editor).  
+5. Keep writing dialogue and pages freely in the script.
 
 These are **notes toward the draft**, not instructions the script must obey.
 

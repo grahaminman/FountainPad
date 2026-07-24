@@ -275,6 +275,50 @@ def main() -> int:
     assert ".note" in light_css and "display: none" in light_css
     print("Phase A/B cards OK", msg, scenes)
 
+    # Panel edit + versions + action-only apply (never dialogue)
+    import cards as cards_mod
+
+    w.editor.setPlainText(
+        "INT. BAY - NIGHT\n\n"
+        "Old action.\n\n"
+        "DRIVER\n"
+        "Stay sharp.\n\n"
+        "[[card: id=c010 | Note]]\n"
+        "INT. BAY - NIGHT\n"
+        "Driver checks the seal.\n"
+    )
+    infos_b = w.editor.list_card_infos()
+    assert infos_b and infos_b[0].card_id == "c010"
+    msg_b = w.editor.apply_card_to_script(infos_b[0].block_number)
+    applied_b = w.editor.toPlainText()
+    assert "DRIVER" in applied_b and "Stay sharp." in applied_b
+    assert "Driver checks the seal." in applied_b
+    assert "Old action." not in applied_b
+    # Snapshot new version via write_card_block
+    vers = list(infos_b[0].versions)
+    vers, act, created = cards_mod.snapshot_version(
+        vers, infos_b[0].active_version, "INT. BAY - NIGHT\nNew seal check."
+    )
+    assert created and act == "v2"
+    w.editor.write_card_block(infos_b[0].block_number, "c010", "Note", vers, act)
+    # block may still be same marker index
+    infos_c = w.editor.list_card_infos()
+    assert any(len(i.versions) >= 2 for i in infos_c)
+    # Make v1 top again
+    c0 = next(i for i in infos_c if i.card_id == "c010")
+    vers2, act2, _ = cards_mod.set_active_version(c0.versions, "v1")
+    w.editor.write_card_block(c0.block_number, "c010", "Note", vers2, act2)
+    infos_d = w.editor.list_card_infos()
+    c1 = next(i for i in infos_d if i.card_id == "c010")
+    assert c1.active_version == "v1"
+    # Panel widgets exist
+    assert hasattr(w.card_navigator, "_body")
+    assert hasattr(w.card_navigator, "working_text")
+    w._refresh_card_navigator()
+    if w.card_navigator._list.count():
+        w.card_navigator._list.setCurrentRow(0)
+    print("Panel versions + action-only apply OK", msg_b)
+
     # Project folder seeds
     with tempfile.TemporaryDirectory() as td:
         project = Path(td) / "demo_project"

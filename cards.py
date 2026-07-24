@@ -1,66 +1,116 @@
 """
-cards.py — Card marker parse/format, ids, and apply-to-script helpers.
+cards.py — Card markers, versions, and apply-to-script helpers.
 
 Fountain markers (notes to the draft, not instructions):
 
-  [[card: id=c001 | Note]]
-  Optional body lines until the next scene heading, card, beat, or blank.
+  [[card: id=c001 | Note | active=v2]]
+  @v1
+  INT. OLD BAY - NIGHT
+  Driver is calm.
+  @v2
+  INT. ARMOURED BAY - NIGHT
+  Driver checks the seal.
 
-Legacy markers without id still parse:
+Legacy single-body cards (no @vN) become one active version (v1).
 
-  [[card: Goal]]
-  [[card: Goal body text]]
-
-Apply-to-script (Phase B first cut)
-  If the card body starts with a scene-heading-shaped line, that slug is
-  promoted into the screenplay (insert or update the parent scene heading).
-  Remaining body lines stay as card notes under the marker.
+Apply-to-script
+  - Promotes the active version scene heading (if any).
+  - Writes/replaces leading action under that scene only.
+  - Never touches character cues, parentheticals, or dialogue.
 """
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
-from typing import Callable
+from dataclasses import dataclass, field
+from typing import Callable, List, Optional, Set, Tuple
 
 RE_CARD_LINE = re.compile(r"^(?:\s*)\[\[card:\s*(.*?)\]\]\s*$", re.IGNORECASE)
 RE_BEAT_LINE = re.compile(r"^(?:\s*)\[\[beat:\s*(.*?)\]\]\s*$", re.IGNORECASE)
 RE_ID = re.compile(r"^id\s*=\s*([A-Za-z0-9_-]+)$", re.IGNORECASE)
 RE_ID_TOKEN = re.compile(r"id\s*=\s*([A-Za-z0-9_-]+)", re.IGNORECASE)
+RE_ACTIVE_TOKEN = re.compile(r"active\s*=\s*(v?\d+)", re.IGNORECASE)
+RE_VER_MARK = re.compile(r"^@v(\d+)\s*$", re.IGNORECASE)
+RE_CHARACTER = re.compile(r"^(?:\s*)([A-Z][A-Z0-9 \.\-'\(\)]+?)(\s*\^)?\s*$")
+RE_PAREN = re.compile(r"^(?:\s*)(\(.+\))\s*$")
+RE_TRANSITION = re.compile(
+    r"^(?:\s*)((?:FADE|CUT|SMASH|MATCH|DISSOLVE|WIPE).+TO:|>.+)$",
+    re.IGNORECASE,
+)
+RE_SECTION = re.compile(r"^(?:\s*)#{1,6}\s+")
+RE_NOTE_ANY = re.compile(r"^(?:\s*)\[\[.+\]\]\s*$")
+RE_SCENE_SHAPE = re.compile(
+    r"^(?:INT|EXT|EST|I/?E|INT\./EXT|INT/EXT)[\.\s].+",
+    re.IGNORECASE,
+)
 
 VALID_TYPES = frozenset({"Goal", "Conflict", "Turn", "Note", "Card"})
 
 
 @dataclass
+class CardVersion:
+    """One snapshot of a card planning text."""
+
+    version_id: str
+    text: str
+
+
+@dataclass
 class CardInfo:
-    """One card marker + body in document order."""
+    """One card marker + versions in document order."""
 
     block_number: int
     card_id: str
     card_type: str
     body: str
     scene_heading: str
-    scene_block: int  # -1 if none above
+    scene_block: int
+    active_version: str = "v1"
+    versions: List[CardVersion] = field(default_factory=list)
+
+    @property
+    def active_text(self) -> str:
+        if not self.versions:
+            return (self.body or "").strip()
+        for v in self.versions:
+            if v.version_id == self.active_version:
+                return (v.text or "").strip()
+        return (self.versions[-1].text or "").strip()
 
     @property
     def draft_slug(self) -> str:
-        """First body line if it looks like a scene heading; else empty."""
-        if not self.body:
+        text = self.active_text
+        if not text:
             return ""
-        return self.body.splitlines()[0].strip()
+        first = text.splitlines()[0].strip()
+        return first if looks_like_scene(first) else ""
+
+    @property
+    def action_text(self) -> str:
+        text = self.active_text
+        if not text:
+            return ""
+        lines = text.splitlines()
+        if lines and looks_like_scene(lines[0].strip()):
+            return "\n".join(lines[1:]).strip()
+        return text.strip()
 
     def display_label(self) -> str:
         slug = self.draft_slug
-        if slug and looks_like_scene(slug):
-            rest = "\n".join(self.body.splitlines()[1:]).strip()
+        active = self.active_text
+        if slug:
+            rest = "\n".join(active.splitlines()[1:]).strip()
             bit = rest.splitlines()[0] if rest else ""
             core = f"{self.card_type}: {slug}" + (f" — {bit}" if bit else "")
         else:
-            bit = self.body.splitlines()[0] if self.body else ""
+            bit = active.splitlines()[0] if active else ""
             core = f"{self.card_type}: {bit}" if bit else self.card_type
+        ver_bit = f"{self.active_version}"
+        if len(self.versions) > 1:
+            ver_bit = f"{self.active_version}/{len(self.versions)}"
         if self.card_id:
-            return f"[{self.card_id}] {core}"
-        return core
+            return f"[{self.card_id} · {ver_bit}] {core}"
+        return f"[{ver_bit}] {core}"
 
 
 def looks_like_scene(text: str) -> bool:
@@ -69,26 +119,57 @@ def looks_like_scene(text: str) -> bool:
         return False
     if t.startswith(".") and not t.startswith(".."):
         return True
-    return bool(
-        re.match(
-            r"^(?:INT|EXT|EST|I/?E|INT\./EXT|INT/EXT)[\.\s].+",
-            t,
-            re.IGNORECASE,
-        )
-    )
+    return bool(RE_SCENE_SHAPE.match(t))
 
 
-def parse_card_inner(inner: str) -> tuple[str, str, str]:
-    """Parse marker interior. Returns (card_id, card_type, inline_text)."""
+def looks_like_character(text: str) -> bool:
+    s = (text or "").strip()
+    if not s or s.endswith(":"):
+        return False
+    if looks_like_scene(s) or is_card_line(s) or is_beat_line(s):
+        return False
+    if RE_PAREN.match(s) or RE_TRANSITION.match(s) or RE_SECTION.match(s):
+        return False
+    if RE_NOTE_ANY.match(s):
+        return False
+    m = RE_CHARACTER.match(s)
+    if not m:
+        return False
+    name = m.group(1).strip()
+    letters = [c for c in name if c.isalpha()]
+    if not letters:
+        return False
+    upper = sum(1 for c in letters if c.isupper())
+    return upper == len(letters) and 1 <= len(name) <= 40
+
+
+def _norm_ver(token: str) -> str:
+    t = (token or "").strip().lower()
+    if not t:
+        return "v1"
+    if t.startswith("v"):
+        return t
+    if t.isdigit():
+        return f"v{t}"
+    return t
+
+
+def parse_card_inner(inner: str) -> Tuple[str, str, str, str]:
     raw = (inner or "").strip()
     if not raw:
-        return "", "Note", ""
+        return "", "Note", "", "v1"
 
     card_id = ""
+    active = "v1"
     rest = raw
 
-    if "|" in raw:
-        left, _, right = raw.partition("|")
+    am = RE_ACTIVE_TOKEN.search(rest)
+    if am:
+        active = _norm_ver(am.group(1))
+        rest = (rest[: am.start()] + rest[am.end() :]).strip(" |")
+
+    if "|" in rest:
+        left, _, right = rest.partition("|")
         left, right = left.strip(), right.strip()
         m = RE_ID.match(left)
         if m:
@@ -100,45 +181,139 @@ def parse_card_inner(inner: str) -> tuple[str, str, str]:
                 card_id = m2.group(1)
                 rest = right
             else:
-                rest = raw
+                m3 = RE_ID_TOKEN.search(right)
+                if m3:
+                    card_id = m3.group(1)
+                    rest = (left + " " + (right[: m3.start()] + right[m3.end() :])).strip(" |")
     else:
-        m2 = RE_ID_TOKEN.search(raw)
+        m2 = RE_ID_TOKEN.search(rest)
         if m2:
             card_id = m2.group(1)
-            rest = (raw[: m2.start()] + raw[m2.end() :]).strip(" |")
+            rest = (rest[: m2.start()] + rest[m2.end() :]).strip(" |")
 
-    rest = rest.strip()
+    rest = rest.strip(" |")
     if not rest:
-        return card_id, "Note", ""
+        return card_id, "Note", "", active
 
     first, _, more = rest.partition(" ")
     if first in VALID_TYPES:
-        return card_id, first, more.strip()
-    if not more and len(first) <= 24 and first[:1].isupper() and first.replace("-", "").isalnum():
-        return card_id, first, ""
+        return card_id, first, more.strip(), active
+    if (
+        not more
+        and len(first) <= 24
+        and first[:1].isupper()
+        and first.replace("-", "").isalnum()
+    ):
+        return card_id, first, "", active
     if first[:1].isupper() and first.isalpha() and len(first) <= 16:
-        return card_id, first, more.strip()
-    return card_id, "Note", rest
+        return card_id, first, more.strip(), active
+    return card_id, "Note", rest, active
 
 
-def format_card_marker(card_id: str, card_type: str, inline: str = "") -> str:
-    """Build a single marker line (no trailing newline)."""
+def parse_versions(body: str, active_hint: str = "v1") -> Tuple[str, List[CardVersion]]:
+    raw = (body or "").replace("\r\n", "\n").replace("\r", "\n")
+    lines = raw.split("\n")
+    has_mark = any(RE_VER_MARK.match(ln.strip()) for ln in lines)
+    if not has_mark:
+        return "v1", [CardVersion("v1", raw.strip())]
+
+    versions: List[CardVersion] = []
+    cur_id: Optional[str] = None
+    buf: List[str] = []
+    preamble: List[str] = []
+
+    def flush() -> None:
+        nonlocal cur_id, buf
+        if cur_id is None:
+            buf = []
+            return
+        text = "\n".join(buf).strip()
+        versions.append(CardVersion(cur_id, text))
+        cur_id = None
+        buf = []
+
+    for ln in lines:
+        m = RE_VER_MARK.match(ln.strip())
+        if m:
+            flush()
+            cur_id = f"v{int(m.group(1))}"
+            continue
+        if cur_id is None:
+            preamble.append(ln)
+        else:
+            buf.append(ln)
+    flush()
+
+    if preamble and not versions:
+        return "v1", [CardVersion("v1", "\n".join(preamble).strip())]
+    if preamble and versions:
+        first = versions[0]
+        merged = ("\n".join(preamble).strip() + "\n" + first.text).strip()
+        versions[0] = CardVersion(first.version_id, merged)
+
+    if not versions:
+        versions = [CardVersion("v1", "")]
+
+    active = _norm_ver(active_hint)
+    ids = {v.version_id for v in versions}
+    if active not in ids:
+        active = versions[-1].version_id
+    return active, versions
+
+
+def format_versions_body(versions: List[CardVersion], active: str) -> str:
+    del active
+    if not versions:
+        return ""
+    if len(versions) == 1 and versions[0].version_id == "v1":
+        return (versions[0].text or "").strip()
+    parts: List[str] = []
+    for v in versions:
+        parts.append(f"@{v.version_id}")
+        t = (v.text or "").strip()
+        if t:
+            parts.append(t)
+    return "\n".join(parts).strip()
+
+
+def format_card_marker(
+    card_id: str,
+    card_type: str,
+    inline: str = "",
+    active: str = "",
+    multi_version: bool = False,
+) -> str:
     ctype = (card_type or "Note").strip() or "Note"
     cid = (card_id or "").strip()
     inline = (inline or "").strip()
     label = f"{ctype} {inline}".strip() if inline else ctype
+    act = _norm_ver(active) if active else ""
+    if cid and multi_version and act:
+        return f"[[card: id={cid} | {label} | active={act}]]"
     if cid:
         return f"[[card: id={cid} | {label}]]"
+    if multi_version and act:
+        return f"[[card: {label} | active={act}]]"
     return f"[[card: {label}]]"
 
 
-def next_card_id(existing: set[str], start: int = 1) -> str:
+def next_card_id(existing: Set[str], start: int = 1) -> str:
     n = start
     while True:
         cand = f"c{n:03d}"
         if cand not in existing:
             return cand
         n += 1
+
+
+def next_version_id(versions: List[CardVersion]) -> str:
+    nums: List[int] = []
+    for v in versions:
+        m = re.match(r"v(\d+)$", v.version_id, re.I)
+        if m:
+            nums.append(int(m.group(1)))
+    n = max(nums) + 1 if nums else 1
+    return f"v{n}"
 
 
 def is_card_line(text: str) -> bool:
@@ -149,13 +324,43 @@ def is_beat_line(text: str) -> bool:
     return bool(RE_BEAT_LINE.match(text or ""))
 
 
+def _body_end(lines: List[str], start: int, is_scene_heading: Callable[[str], bool]) -> int:
+    """End index of card body starting at *start* (line after marker).
+
+    Plain cards: first line may be a draft slug; a *later* scene heading ends the body.
+    Versioned cards (@vN): scene headings stay inside the body until the next card/beat
+    or a blank line after content (so each version can carry its own INT./EXT. line).
+    """
+    j = start
+    body_seen = 0
+    version_mode = False
+    while j < len(lines):
+        nxt = lines[j]
+        ns = nxt.strip()
+        if not ns:
+            if body_seen:
+                break
+            j += 1
+            continue
+        if is_card_line(nxt) or is_beat_line(nxt):
+            break
+        if RE_VER_MARK.match(ns):
+            version_mode = True
+            body_seen += 1
+            j += 1
+            continue
+        if is_scene_heading(ns) and body_seen and not version_mode:
+            break
+        body_seen += 1
+        j += 1
+    return j
+
 def list_cards_from_text(
     text: str,
     is_scene_heading: Callable[[str], bool],
-) -> list[CardInfo]:
-    """Parse full document text into CardInfo list (0-based line = block number)."""
+) -> List[CardInfo]:
     lines = text.splitlines()
-    cards: list[CardInfo] = []
+    cards: List[CardInfo] = []
     scene_heading = "Untitled Scene"
     scene_block = -1
     i = 0
@@ -169,28 +374,19 @@ def list_cards_from_text(
             continue
         m = RE_CARD_LINE.match(raw)
         if m:
-            card_id, card_type, inline = parse_card_inner(m.group(1))
-            body_lines: list[str] = []
+            card_id, card_type, inline, active_hint = parse_card_inner(m.group(1))
+            body_lines: List[str] = []
             if inline:
                 body_lines.append(inline)
-            j = i + 1
-            while j < len(lines):
-                nxt = lines[j]
-                ns = nxt.strip()
-                if not ns:
-                    if body_lines:
-                        break
-                    j += 1
-                    continue
-                if is_card_line(nxt) or is_beat_line(nxt):
-                    break
-                # First body line may be a draft scene slug (cards-first).
-                # A later scene heading ends the body (next real scene).
-                if is_scene_heading(ns) and body_lines:
-                    break
-                body_lines.append(ns)
-                j += 1
+            j = _body_end(lines, i + 1, is_scene_heading)
+            for k in range(i + 1, j):
+                body_lines.append(lines[k].rstrip("\n"))
+            while body_lines and not body_lines[0].strip():
+                body_lines.pop(0)
+            while body_lines and not body_lines[-1].strip():
+                body_lines.pop()
             body = "\n".join(body_lines).strip()
+            active, versions = parse_versions(body, active_hint)
             cards.append(
                 CardInfo(
                     block_number=i,
@@ -199,6 +395,8 @@ def list_cards_from_text(
                     body=body,
                     scene_heading=scene_heading,
                     scene_block=scene_block,
+                    active_version=active,
+                    versions=versions,
                 )
             )
             i = j
@@ -210,49 +408,252 @@ def list_cards_from_text(
 def ensure_ids_in_text(
     text: str,
     is_scene_heading: Callable[[str], bool],
-) -> tuple[str, int]:
-    """Rewrite card markers missing ids. Returns (new_text, number_assigned)."""
+) -> Tuple[str, int]:
     plain = text.splitlines()
     ends_with_nl = text.endswith("\n")
-    existing: set[str] = set()
+    existing: Set[str] = set()
     for info in list_cards_from_text(text, is_scene_heading):
         if info.card_id:
             existing.add(info.card_id)
 
     assigned = 0
-    out_lines: list[str] = []
-    for line in plain:
+    out_lines: List[str] = []
+    i = 0
+    while i < len(plain):
+        line = plain[i]
         m = RE_CARD_LINE.match(line)
         if not m:
             out_lines.append(line)
+            i += 1
             continue
-        card_id, card_type, inline = parse_card_inner(m.group(1))
+        card_id, card_type, inline, active = parse_card_inner(m.group(1))
+        j = _body_end(plain, i + 1, is_scene_heading)
+        body = "\n".join(plain[i + 1 : j]).strip()
+        if inline:
+            body = f"{inline}\n{body}".strip() if body else inline
+        active, versions = parse_versions(body, active)
+        multi = len(versions) > 1
         if not card_id:
             card_id = next_card_id(existing)
             existing.add(card_id)
             assigned += 1
-        out_lines.append(format_card_marker(card_id, card_type, inline))
+        out_lines.append(
+            format_card_marker(card_id, card_type, active=active, multi_version=multi)
+        )
+        body_out = format_versions_body(versions, active)
+        if body_out:
+            out_lines.extend(body_out.split("\n"))
+        i = j
+
     new_text = "\n".join(out_lines)
     if ends_with_nl:
         new_text += "\n"
     return new_text, assigned
 
 
+def write_card_block(
+    text: str,
+    card_block: int,
+    card_id: str,
+    card_type: str,
+    versions: List[CardVersion],
+    active: str,
+    is_scene_heading: Callable[[str], bool],
+) -> Tuple[str, str]:
+    plain = text.splitlines()
+    ends_with_nl = text.endswith("\n")
+    if card_block < 0 or card_block >= len(plain) or not RE_CARD_LINE.match(plain[card_block]):
+        return text, "Card not found."
+
+    end = _body_end(plain, card_block + 1, is_scene_heading)
+    active = _norm_ver(active)
+    if not versions:
+        versions = [CardVersion("v1", "")]
+    ids = {v.version_id for v in versions}
+    if active not in ids:
+        active = versions[-1].version_id
+    multi = len(versions) > 1
+    marker = format_card_marker(card_id, card_type, active=active, multi_version=multi)
+    body_out = format_versions_body(versions, active)
+    new_block = [marker]
+    if body_out:
+        new_block.extend(body_out.split("\n"))
+
+    out = plain[:card_block] + new_block + plain[end:]
+    new_text = "\n".join(out)
+    if ends_with_nl:
+        new_text += "\n"
+    return new_text, "Card saved"
+
+
+def snapshot_version(
+    versions: List[CardVersion],
+    active: str,
+    new_text: str,
+) -> Tuple[List[CardVersion], str, bool]:
+    active = _norm_ver(active)
+    new_text = (new_text or "").strip()
+    if not versions:
+        return [CardVersion("v1", new_text)], "v1", True
+
+    cur = next((v for v in versions if v.version_id == active), versions[-1])
+    if (cur.text or "").strip() == new_text:
+        return list(versions), cur.version_id, False
+
+    versions = list(versions)
+    vid = next_version_id(versions)
+    versions.append(CardVersion(vid, new_text))
+    return versions, vid, True
+
+
+def set_active_version(
+    versions: List[CardVersion],
+    version_id: str,
+) -> Tuple[List[CardVersion], str, str]:
+    vid = _norm_ver(version_id)
+    ids = {v.version_id for v in versions}
+    if vid not in ids:
+        fallback = versions[-1].version_id if versions else "v1"
+        return versions, fallback, "Version not found."
+    return versions, vid, f"Active version set to {vid}"
+
+
+def _scene_range(
+    lines: List[str],
+    scene_block: int,
+    is_scene_heading: Callable[[str], bool],
+) -> Tuple[int, int]:
+    if scene_block < 0 or scene_block >= len(lines):
+        return -1, -1
+    end = scene_block + 1
+    while end < len(lines):
+        if is_scene_heading(lines[end].strip()):
+            break
+        end += 1
+    return scene_block, end
+
+
+def _find_card_span_in_range(
+    lines: List[str],
+    start: int,
+    end: int,
+    card_id: str,
+    card_block_hint: int,
+    is_scene_heading: Callable[[str], bool],
+) -> Tuple[int, int]:
+    if 0 <= card_block_hint < len(lines) and start <= card_block_hint < end:
+        if RE_CARD_LINE.match(lines[card_block_hint]):
+            return card_block_hint, _body_end(lines, card_block_hint + 1, is_scene_heading)
+    for i in range(start, end):
+        m = RE_CARD_LINE.match(lines[i])
+        if not m:
+            continue
+        cid, _, _, _ = parse_card_inner(m.group(1))
+        if card_id and cid == card_id:
+            return i, _body_end(lines, i + 1, is_scene_heading)
+    return -1, -1
+
+
+def _replace_leading_action(
+    lines: List[str],
+    scene_start: int,
+    scene_end: int,
+    card_span: Tuple[int, int],
+    action_lines: List[str],
+    is_scene_heading: Callable[[str], bool],
+) -> List[str]:
+    del is_scene_heading
+    out = list(lines)
+    c0, c1 = card_span
+
+    i = scene_start + 1
+    zone_start = -1
+    zone_end = -1
+    in_dialogue = False
+
+    while i < scene_end and i < len(out):
+        if c0 >= 0 and c0 <= i < c1:
+            i = c1
+            in_dialogue = False
+            continue
+
+        raw = out[i]
+        s = raw.strip()
+        if not s:
+            if in_dialogue:
+                in_dialogue = False
+            if zone_start >= 0:
+                zone_end = i
+                break
+            i += 1
+            continue
+
+        if is_card_line(raw) or is_beat_line(raw):
+            if zone_start >= 0:
+                zone_end = i
+                break
+            i += 1
+            continue
+
+        if looks_like_character(s):
+            if zone_start >= 0:
+                zone_end = i
+                break
+            in_dialogue = True
+            i += 1
+            continue
+
+        if in_dialogue:
+            i += 1
+            continue
+
+        if RE_PAREN.match(s) or RE_TRANSITION.match(s) or RE_SECTION.match(s):
+            if zone_start >= 0:
+                zone_end = i
+                break
+            i += 1
+            continue
+
+        if zone_start < 0:
+            zone_start = i
+        zone_end = i + 1
+        i += 1
+
+    action_clean = [ln.rstrip() for ln in action_lines]
+    while action_clean and not action_clean[-1].strip():
+        action_clean.pop()
+    action_clean = [ln for ln in action_clean if ln.strip()]
+
+    if zone_start >= 0:
+        out[zone_start:zone_end] = action_clean
+        return out
+
+    insert_at = scene_start + 1
+    if c0 >= 0:
+        insert_at = c1
+
+    block: List[str] = []
+    if action_clean:
+        if insert_at > 0 and insert_at <= len(out) and out[insert_at - 1].strip():
+            block.append("")
+        block.extend(action_clean)
+        block.append("")
+    out[insert_at:insert_at] = block
+    return out
+
+
 def apply_card_to_script_text(
     text: str,
     card_block: int,
     is_scene_heading: Callable[[str], bool],
-) -> tuple[str, str]:
-    """
-    Promote draft slug from card body into the screenplay.
-
-    Returns (new_text, status_message).
-    """
+    *,
+    snapshot: bool = True,
+) -> Tuple[str, str]:
+    del snapshot
     plain = text.splitlines()
     ends_with_nl = text.endswith("\n")
     if card_block < 0 or card_block >= len(plain):
         return text, "Card not found."
-
     if not RE_CARD_LINE.match(plain[card_block]):
         return text, "No card marker on that line."
 
@@ -264,65 +665,127 @@ def apply_card_to_script_text(
     existing = {c.card_id for c in cards if c.card_id}
     card_id = info.card_id or next_card_id(existing)
     card_type = info.card_type or "Note"
+    versions = list(info.versions) if info.versions else [CardVersion("v1", info.body)]
+    active = info.active_version or "v1"
 
-    body_lines = [ln for ln in info.body.splitlines() if ln.strip()] if info.body else []
-    draft_slug = ""
-    note_lines: list[str] = []
-    if body_lines and is_scene_heading(body_lines[0].strip()):
-        draft_slug = body_lines[0].strip()
-        note_lines = body_lines[1:]
-    else:
-        note_lines = list(body_lines)
+    multi = len(versions) > 1
+    marker = format_card_marker(card_id, card_type, active=active, multi_version=multi)
+    body_out = format_versions_body(versions, active)
 
     out = list(plain)
-    out[card_block] = format_card_marker(card_id, card_type)
+    end_body = _body_end(out, card_block + 1, is_scene_heading)
+    new_block = [marker]
+    if body_out:
+        new_block.extend(body_out.split("\n"))
+    out = out[:card_block] + new_block + out[end_body:]
 
-    # Remove old body under marker (same rules as list_cards_from_text:
-    # first line may be a draft scene slug; later scenes end the body).
-    end = card_block + 1
-    body_seen = 0
-    while end < len(out):
-        ns = out[end].strip()
-        if not ns:
-            if body_seen:
-                break
-            end += 1
-            continue
-        if is_card_line(out[end]) or is_beat_line(out[end]):
-            break
-        if is_scene_heading(ns) and body_seen:
-            break
-        body_seen += 1
-        end += 1
-    del out[card_block + 1 : end]
-    for offset, nl in enumerate(note_lines):
-        out.insert(card_block + 1 + offset, nl)
-
-    msg_parts: list[str] = []
-    # After body rewrite, card still at card_block (unless we insert above later)
     marker_at = card_block
+    active_text = ""
+    for v in versions:
+        if v.version_id == active:
+            active_text = (v.text or "").strip()
+            break
+    if not active_text and versions:
+        active_text = (versions[-1].text or "").strip()
+        active = versions[-1].version_id
+
+    draft_slug = ""
+    action_lines: List[str] = []
+    if active_text:
+        al = active_text.splitlines()
+        if al and is_scene_heading(al[0].strip()):
+            draft_slug = al[0].strip()
+            action_lines = al[1:]
+        else:
+            action_lines = al
+
+    msg_parts: List[str] = []
+    scene_block = info.scene_block
 
     if draft_slug:
-        if info.scene_block >= 0 and info.scene_block < marker_at:
-            sb = info.scene_block
-            if out[sb].strip() != draft_slug:
-                out[sb] = draft_slug
+        if scene_block >= 0 and scene_block < marker_at:
+            if out[scene_block].strip() != draft_slug:
+                out[scene_block] = draft_slug
                 msg_parts.append(f"Updated scene heading to {draft_slug}")
             else:
                 msg_parts.append("Scene heading already matched card")
         else:
             out.insert(marker_at, "")
             out.insert(marker_at, draft_slug)
+            scene_block = marker_at
+            marker_at += 2
             msg_parts.append(f"Inserted scene {draft_slug}")
-    else:
+    elif scene_block < 0:
         msg_parts.append(
-            "No scene-heading line on the card — ensured id only. "
-            "Put INT./EXT. ... as the first body line, then Apply again."
+            "No scene heading on card or above it — set INT./EXT. as first line "
+            "of the active version."
         )
+        new_text = "\n".join(out)
+        if ends_with_nl:
+            new_text += "\n"
+        return new_text, " · ".join(msg_parts)
 
-    new_text = "\n".join(out)
+    if scene_block < 0:
+        new_text = "\n".join(out)
+        if ends_with_nl:
+            new_text += "\n"
+        return new_text, " · ".join(msg_parts) if msg_parts else "Nothing to apply."
+
+    s0, s1 = _scene_range(out, scene_block, is_scene_heading)
+    c_span = _find_card_span_in_range(out, s0, s1, card_id, marker_at, is_scene_heading)
+
+    before_join = "\n".join(out)
+    out = _replace_leading_action(
+        out,
+        s0,
+        s1 if s1 > 0 else len(out),
+        c_span,
+        action_lines,
+        is_scene_heading,
+    )
+    after_join = "\n".join(out)
+
+    if action_lines:
+        if before_join != after_join:
+            msg_parts.append("Updated scene action (dialogue left untouched)")
+        else:
+            msg_parts.append("Action already matched card")
+    else:
+        msg_parts.append("No action lines on active version (slug only / notes empty)")
+
+    msg_parts.append(f"active {active}")
+
+    new_text = after_join
     if ends_with_nl:
         new_text += "\n"
     new_text, _ = ensure_ids_in_text(new_text, is_scene_heading)
     return new_text, " · ".join(msg_parts)
+
+
+def apply_with_panel_state(
+    text: str,
+    card_block: int,
+    card_id: str,
+    card_type: str,
+    versions: List[CardVersion],
+    active: str,
+    is_scene_heading: Callable[[str], bool],
+    *,
+    do_snapshot_from: Optional[str] = None,
+) -> Tuple[str, str, List[CardVersion], str]:
+    versions = list(versions) if versions else [CardVersion("v1", "")]
+    active = _norm_ver(active)
+    created = False
+    if do_snapshot_from is not None:
+        versions, active, created = snapshot_version(versions, active, do_snapshot_from)
+
+    text2, _ = write_card_block(
+        text, card_block, card_id, card_type, versions, active, is_scene_heading
+    )
+    text3, msg = apply_card_to_script_text(
+        text2, card_block, is_scene_heading, snapshot=False
+    )
+    if created:
+        msg = f"Saved {active} · " + msg
+    return text3, msg, versions, active
 

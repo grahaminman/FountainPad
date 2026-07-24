@@ -375,13 +375,27 @@ class FountainEditor(QPlainTextEdit):
         )
 
     def list_scene_headings(self) -> list[tuple[int, str]]:
-        """Return (block_number, heading_text) for every scene heading in order."""
+        """Return (block_number, heading_text) for every scene heading in order.
+
+        Draft sluglines stored inside card version bodies are skipped so the
+        scene navigator only shows real screenplay scenes.
+        """
+        text = self.toPlainText()
+        skip: set[int] = set()
+        for info in cards_mod.list_cards_from_text(text, self.is_scene_heading):
+            # Marker line + body lines until next block after body
+            lines = text.splitlines()
+            start = info.block_number + 1
+            end = cards_mod._body_end(lines, start, self.is_scene_heading)
+            for bn in range(start, end):
+                skip.add(bn)
         scenes: list[tuple[int, str]] = []
         block = self.document().firstBlock()
         while block.isValid():
-            text = block.text()
-            if self.is_scene_heading(text):
-                scenes.append((block.blockNumber(), text.strip()))
+            bn = block.blockNumber()
+            line = block.text()
+            if bn not in skip and self.is_scene_heading(line):
+                scenes.append((bn, line.strip()))
             block = block.next()
         return scenes
 
@@ -437,12 +451,61 @@ class FountainEditor(QPlainTextEdit):
         return assigned
 
     def apply_card_to_script(self, card_block: int) -> str:
-        """Phase B: promote draft scene slug from card body into the script."""
+        """Apply active card version: scene heading + leading action only."""
         text = self.toPlainText()
         new_text, message = cards_mod.apply_card_to_script_text(
             text,
             card_block,
             self.is_scene_heading,
+        )
+        if new_text != text:
+            self._replace_all_text(new_text)
+        return message
+
+    def write_card_block(
+        self,
+        card_block: int,
+        card_id: str,
+        card_type: str,
+        versions,
+        active: str,
+    ) -> str:
+        """Persist card marker + version body into the Fountain file."""
+        text = self.toPlainText()
+        new_text, message = cards_mod.write_card_block(
+            text,
+            card_block,
+            card_id,
+            card_type,
+            versions,
+            active,
+            self.is_scene_heading,
+        )
+        if new_text != text:
+            self._replace_all_text(new_text)
+        return message
+
+    def apply_card_with_panel_state(
+        self,
+        card_block: int,
+        card_id: str,
+        card_type: str,
+        versions,
+        active: str,
+        *,
+        do_snapshot_from: Optional[str] = None,
+    ) -> str:
+        """Save panel state (optional snapshot) then apply action-only to script."""
+        text = self.toPlainText()
+        new_text, message, _vers, _act = cards_mod.apply_with_panel_state(
+            text,
+            card_block,
+            card_id,
+            card_type,
+            versions,
+            active,
+            self.is_scene_heading,
+            do_snapshot_from=do_snapshot_from,
         )
         if new_text != text:
             self._replace_all_text(new_text)

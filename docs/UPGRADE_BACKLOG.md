@@ -64,6 +64,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 - [x] Local `build-notes/` gitignored (process ledger off GitHub)
 - [x] P3 empty cards from scenes + Help update (2026-07-24)
 - [x] Cards-first Phase A/B: stable ids, hide notes in preview/PDF, editor dim toggle, Apply card→script (2026-07-24)
+- [x] Editable Index Card detail + version stack + Apply action-only/never dialogue (2026-07-24)
 - [ ] Phase C: reorder cards → move scenes
 - [ ] Keep USER_GUIDE honest as cards/beats/project mature
 
