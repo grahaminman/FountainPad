@@ -194,6 +194,7 @@ class MainWindow(QMainWindow):
         self.card_navigator.applyCardRequested.connect(self.apply_card_to_script)
         self.card_navigator.saveCardRequested.connect(self.save_card_from_panel)
         self.card_navigator.setActiveVersionRequested.connect(self.set_card_active_version)
+        self.card_navigator.reorderCardRequested.connect(self.reorder_card_scene)
         self.beat_board.beatActivated.connect(self._on_beat_activated)
 
         # Debounce navigator rebuild while typing (cheap, but no need every keystroke).
@@ -365,6 +366,20 @@ class MainWindow(QMainWindow):
         )
         self.act_ensure_card_ids.triggered.connect(self.ensure_card_ids)
 
+        self.act_card_up = QAction("Move Card Scene &Up", self)
+        self.act_card_up.setShortcut(QKeySequence("Ctrl+Alt+Up"))
+        self.act_card_up.setStatusTip(
+            "Move the selected card's whole scene earlier in the script"
+        )
+        self.act_card_up.triggered.connect(lambda: self.reorder_selected_card_scene(-1))
+
+        self.act_card_down = QAction("Move Card Scene &Down", self)
+        self.act_card_down.setShortcut(QKeySequence("Ctrl+Alt+Down"))
+        self.act_card_down.setStatusTip(
+            "Move the selected card's whole scene later in the script"
+        )
+        self.act_card_down.triggered.connect(lambda: self.reorder_selected_card_scene(1))
+
         self.act_show_card_markers = QAction("Show Card &Markers in Editor", self)
         self.act_show_card_markers.setCheckable(True)
         self.act_show_card_markers.setChecked(True)
@@ -414,6 +429,8 @@ class MainWindow(QMainWindow):
         self.menu_edit.addAction(self.act_cards_from_scenes)
         self.menu_edit.addAction(self.act_apply_card)
         self.menu_edit.addAction(self.act_ensure_card_ids)
+        self.menu_edit.addAction(self.act_card_up)
+        self.menu_edit.addAction(self.act_card_down)
 
         self.menu_view = self.menuBar().addMenu("&View")
         self.menu_view.addAction(self.act_toggle_nav)
@@ -1025,6 +1042,49 @@ class MainWindow(QMainWindow):
             self._refresh_card_navigator()
             self._sync_previews(immediate=True)
         self.statusBar().showMessage(message or "Card saved", 3000)
+
+    def reorder_selected_card_scene(self, direction: int) -> None:
+        block = self.card_navigator.current_block()
+        if block < 0:
+            infos = self.editor.list_card_infos()
+            if not infos:
+                self.statusBar().showMessage("No cards to reorder", 2500)
+                return
+            block_no = self.editor.textCursor().blockNumber()
+            target = infos[0]
+            for info in infos:
+                if info.block_number <= block_no:
+                    target = info
+                else:
+                    break
+            block = target.block_number
+        self.reorder_card_scene(int(block), int(direction))
+
+    def reorder_card_scene(self, card_block: int, direction: int) -> None:
+        """Phase C: move the scene owned by this card up/down in the Fountain file."""
+        before = self.editor.toPlainText()
+        message, new_block = self.editor.reorder_card_scene(int(card_block), int(direction))
+        after = self.editor.toPlainText()
+        if after != before:
+            self._dirty = True
+            self._update_title()
+            self._refresh_card_navigator()
+            self._refresh_navigator()
+            self._sync_previews(immediate=True)
+            self._update_status()
+            if not self._cards_visible:
+                self.toggle_card_navigator(True)
+            if new_block >= 0:
+                # Reselect moved card in the panel
+                for row in range(self.card_navigator._list.count()):
+                    item = self.card_navigator._list.item(row)
+                    if item and int(item.data(Qt.UserRole)) == new_block:
+                        self.card_navigator._updating = True
+                        self.card_navigator._list.setCurrentRow(row)
+                        self.card_navigator._updating = False
+                        break
+                self.editor.goto_block(new_block)
+        self.statusBar().showMessage(message or "Reorder finished", 5000)
 
     def set_card_active_version(self, card_block: int, version_id: str) -> None:
         """Make a historical version the active (top priority) version on a card."""

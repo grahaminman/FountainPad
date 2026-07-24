@@ -65,7 +65,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 - [x] P3 empty cards from scenes + Help update (2026-07-24)
 - [x] Cards-first Phase A/B: stable ids, hide notes in preview/PDF, editor dim toggle, Apply card→script (2026-07-24)
 - [x] Editable Index Card detail + version stack + Apply action-only/never dialogue (2026-07-24)
-- [ ] Phase C: reorder cards → move scenes
+- [x] Phase C first cut: card scene Up/Down reorder (2026-07-24); drag-drop later
 - [ ] Keep USER_GUIDE honest as cards/beats/project mature
 
 ### A. Distribution & trust (product)
@@ -92,7 +92,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 | ID | Feature | Notes | Source |
 |---|---|---|---|
 | C1 | **Index card view** | One card per scene: slugline + summary side + optional script peek | **DONE 2026-07-23** (inline `[[card: Type]]` list + filter + jump; View toggle) |
-| C2 | Drag reorder cards → reorder scenes in Fountain | Hard but high value; careful with dual dialogue/notes | **OPEN** — Phase C (design in local `build-notes/CARDS_FIRST_DESIGN.md`) |
+| C2 | Drag reorder cards → reorder scenes in Fountain | Hard but high value; careful with dual dialogue/notes | **Partial 2026-07-24** — Up/Down moves whole scene block with card (no drag yet) |
 | C3 | Color tags (plot A/B, POV, day/night) | Metadata in Fountain notes or sidecar JSON | FD Beat Board habits |
 | C4 | **Beat board** (freeform canvas) | Beats not 1:1 scenes; link beat → scene(s) | **Partial 2026-07-23** — linear list of `[[beat: …]]` + jump (not freeform canvas) |
 | C5 | Outline lane (linear) | Horizontal/vertical sequence of beats; lighter than full board | FD Outline Editor — list UI is a first step via C4 partial |

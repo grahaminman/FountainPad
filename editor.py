@@ -517,6 +517,22 @@ class FountainEditor(QPlainTextEdit):
         cid = cards_mod.next_card_id(existing)
         return cards_mod.format_card_marker(cid, card_type or "Note")
 
+    def reorder_card_scene(self, card_block: int, direction: int) -> tuple[str, int]:
+        """Move the scene owned by this card up (-1) or down (+1).
+
+        Returns (status_message, new_card_block_or_-1).
+        """
+        text = self.toPlainText()
+        new_text, message, new_block = cards_mod.reorder_card_scene(
+            text,
+            int(card_block),
+            int(direction),
+            self.is_scene_heading,
+        )
+        if new_text != text:
+            self._replace_all_text(new_text)
+        return message, int(new_block) if new_block is not None else -1
+
     def set_hide_card_markers(self, hide: bool) -> None:
         self._highlighter.set_hide_card_markers(hide)
 

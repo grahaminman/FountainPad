@@ -319,6 +319,35 @@ def main() -> int:
         w.card_navigator._list.setCurrentRow(0)
     print("Panel versions + action-only apply OK", msg_b)
 
+    # Phase C: reorder card scene up/down (whole scene travels; dialogue preserved)
+    w.editor.setPlainText(
+        "Title: Reorder\n\n"
+        "INT. ONE - DAY\n\n"
+        "Action one.\n\n"
+        "[[card: id=c101 | Note]]\n"
+        "note one\n\n"
+        "HERO\n"
+        "Line one.\n\n"
+        "INT. TWO - NIGHT\n\n"
+        "Action two.\n\n"
+        "[[card: id=c102 | Note]]\n"
+        "note two\n"
+    )
+    infos_r = w.editor.list_card_infos()
+    c_one = next(i for i in infos_r if i.card_id == "c101")
+    msg_r, nb_r = w.editor.reorder_card_scene(c_one.block_number, 1)
+    text_r = w.editor.toPlainText()
+    assert text_r.index("INT. TWO") < text_r.index("INT. ONE"), text_r
+    assert "HERO" in text_r and "Line one." in text_r
+    assert "[[card: id=c101" in text_r and "[[card: id=c102" in text_r
+    infos_r2 = w.editor.list_card_infos()
+    c_one2 = next(i for i in infos_r2 if i.card_id == "c101")
+    msg_r2, _ = w.editor.reorder_card_scene(c_one2.block_number, -1)
+    text_r2 = w.editor.toPlainText()
+    assert text_r2.index("INT. ONE") < text_r2.index("INT. TWO"), text_r2
+    assert hasattr(w.card_navigator, "_btn_up") and hasattr(w.card_navigator, "_btn_down")
+    print("Phase C reorder OK", msg_r, msg_r2)
+
     # Project folder seeds
     with tempfile.TemporaryDirectory() as td:
         project = Path(td) / "demo_project"

@@ -1,6 +1,6 @@
 # FountainPad — User Guide
 
-**Last updated:** 2026-07-24 (editable cards + versions; apply action only)  
+**Last updated:** 2026-07-24 (card scene reorder Up/Down)  
 **Audience:** someone using the app (not building it)  
 **Honesty rule:** features marked **Partial** work today but are not finished products. If something feels unclear, that is a real UX signal — this guide should explain what to expect.
 
@@ -60,6 +60,7 @@ Standard text editing against the **source editor** (not the preview):
 | **Generate Empty Cards from Scenes…** | **Partial (P3).** Optional empty card stubs under scenes with no card yet. Confirm first. Same as **From scenes** on the Index Cards panel. |
 | **Apply Card to Script** | **Partial.** Pushes the **active card version** into the screenplay: scene heading + **leading action only**. **Dialogue is never changed.** Explicit action — not a silent compile. Ctrl/Cmd+Shift+A. |
 | **Ensure Card IDs** | Assign stable `id=cNNN` on markers that do not have one yet. |
+| **Move Card Scene Up / Down** | **Partial (Phase C).** Moves the **whole scene** owned by the selected card (heading through the line before the next scene). Card markers and dialogue in that scene travel with it. Index Cards **Up** / **Down**, or Ctrl/Cmd+Alt+Up/Down. |
 
 ### View
 
@@ -145,7 +146,8 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
 
 ### What is *not* finished
 
-- **Reorder cards to move scenes** (Phase C) — not built yet.
+- **Drag-and-drop reorder** — not yet; use **Up** / **Down** for now.
+- Multi-card scenes: moving one card moves the **whole shared scene** (all cards in that scene travel together).
 - No separate visual corkboard; storage is still inside the Fountain file.
 - Apply does not rewrite dialogue (by design) and does not replace a whole scene body.
 - Project `cards.md` is still only a seed file (not live pack sync).
@@ -157,7 +159,8 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
 2. **Save ver** when you want a progress snapshot.  
 3. **Apply** when you want that active version’s slug + action on the page (dialogue stays yours).  
 4. To roll back an idea: **Make top** on an older version → **Apply** again (or copy from the version tooltip/editor).  
-5. Keep writing dialogue and pages freely in the script.
+5. **Up** / **Down** on a card moves that card’s **scene block** in the script (not just the list row).  
+6. Keep writing dialogue and pages freely in the script.
 
 These are **notes toward the draft**, not instructions the script must obey.
 

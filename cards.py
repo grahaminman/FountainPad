@@ -789,3 +789,159 @@ def apply_with_panel_state(
         msg = f"Saved {active} · " + msg
     return text3, msg, versions, active
 
+
+def _real_scene_starts(
+    lines: List[str],
+    is_scene_heading: Callable[[str], bool],
+) -> List[int]:
+    """Scene heading line indexes that are not inside a card body."""
+    skip: Set[int] = set()
+    i = 0
+    while i < len(lines):
+        if RE_CARD_LINE.match(lines[i]):
+            end = _body_end(lines, i + 1, is_scene_heading)
+            for bn in range(i + 1, end):
+                skip.add(bn)
+            i = end
+            continue
+        i += 1
+    starts: List[int] = []
+    for i, line in enumerate(lines):
+        if i in skip:
+            continue
+        if is_scene_heading(line.strip()):
+            starts.append(i)
+    return starts
+
+
+def _owned_scene_block_for_card(
+    lines: List[str],
+    info: CardInfo,
+    is_scene_heading: Callable[[str], bool],
+) -> Tuple[int, int, str]:
+    """
+    Return (start, end, reason) for the scene range owned by this card.
+
+    Ownership rules (v1):
+    - Prefer the nearest real scene heading *above* the card (info.scene_block).
+    - That range is exclusive of the next real scene heading.
+    - If the card has no parent scene, refuse (need Apply first / attach to scene).
+    - If multiple cards share the same scene, moving still moves the whole scene
+      (all cards in that scene travel together).
+    """
+    starts = _real_scene_starts(lines, is_scene_heading)
+    if info.scene_block < 0 or info.scene_block not in starts:
+        # Card may sit before any scene, or scene_block points at a draft slug inside body
+        # Try nearest real scene above card marker.
+        parent = -1
+        for s in starts:
+            if s < info.block_number:
+                parent = s
+            else:
+                break
+        if parent < 0:
+            return -1, -1, (
+                "Card has no parent scene yet. Put a scene heading above it "
+                "(or Apply a draft INT./EXT. first), then reorder."
+            )
+        scene_block = parent
+    else:
+        scene_block = info.scene_block
+
+    # end = next real scene start, or EOF
+    end = len(lines)
+    for s in starts:
+        if s > scene_block:
+            end = s
+            break
+    # Include trailing blank lines that sit before next scene? keep tight to next start.
+    return scene_block, end, ""
+
+
+def reorder_card_scene(
+    text: str,
+    card_block: int,
+    direction: int,
+    is_scene_heading: Callable[[str], bool],
+) -> Tuple[str, str, int]:
+    """
+    Move the scene block owned by the card at card_block up (-1) or down (+1).
+
+    Returns (new_text, message, new_card_block).
+    new_card_block is the marker line index after the move (-1 if unchanged/failed).
+    """
+    if direction not in (-1, 1):
+        return text, "Invalid reorder direction.", -1
+
+    plain = text.splitlines()
+    ends_with_nl = text.endswith("\n")
+    cards = list_cards_from_text(text, is_scene_heading)
+    info = next((c for c in cards if c.block_number == card_block), None)
+    if info is None:
+        return text, "Card not found.", -1
+
+    starts = _real_scene_starts(plain, is_scene_heading)
+    if len(starts) < 2:
+        return text, "Need at least two scenes to reorder.", -1
+
+    s0, s1, err = _owned_scene_block_for_card(plain, info, is_scene_heading)
+    if err:
+        return text, err, -1
+    if s0 < 0:
+        return text, "Could not resolve scene for this card.", -1
+
+    # Index of this scene among real scenes
+    try:
+        idx = starts.index(s0)
+    except ValueError:
+        return text, "Scene not in document order list.", -1
+
+    target_idx = idx + direction
+    if target_idx < 0:
+        return text, "Already the first scene.", -1
+    if target_idx >= len(starts):
+        return text, "Already the last scene.", -1
+
+    # Build ranges for each scene: [start, end)
+    ranges: List[Tuple[int, int]] = []
+    for i, st in enumerate(starts):
+        en = starts[i + 1] if i + 1 < len(starts) else len(plain)
+        ranges.append((st, en))
+
+    # Optional preface before first scene (title page etc.)
+    preface = plain[: starts[0]] if starts else []
+    chunks = [plain[a:b] for a, b in ranges]
+
+    # Swap chunk with neighbor
+    j = target_idx
+    chunks[idx], chunks[j] = chunks[j], chunks[idx]
+
+    out: List[str] = list(preface)
+    for ch in chunks:
+        out.extend(ch)
+
+    # Normalize: ensure a blank line between scene chunks if both sides have content
+    # (keep simple — preserve original internal spacing)
+
+    new_text = "\n".join(out)
+    if ends_with_nl:
+        new_text += "\n"
+
+    # Find new card block by id if possible, else by relative search
+    new_cards = list_cards_from_text(new_text, is_scene_heading)
+    new_block = -1
+    if info.card_id:
+        for c in new_cards:
+            if c.card_id == info.card_id:
+                new_block = c.block_number
+                break
+    if new_block < 0:
+        # fallback: same type + body start
+        for c in new_cards:
+            if c.card_type == info.card_type and c.body == info.body:
+                new_block = c.block_number
+                break
+
+    moved = "up" if direction < 0 else "down"
+    heading = plain[s0].strip() if 0 <= s0 < len(plain) else "scene"
+    return new_text, f"Moved scene {moved}: {heading}", new_block

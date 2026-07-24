@@ -43,6 +43,7 @@ class CardNavigator(QWidget):
     saveCardRequested = Signal(int, str, str, object, str, bool)
     # (block, card_id, card_type, versions_list, active, make_snapshot)
     setActiveVersionRequested = Signal(int, str)  # block, version_id
+    reorderCardRequested = Signal(int, int)  # block, direction (-1 up / +1 down)
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -79,6 +80,16 @@ class CardNavigator(QWidget):
             "Write editor text into the active version without adding a new version.",
             self._emit_save_inplace,
         )
+        self._btn_up = self._make_tool_button(
+            "Up",
+            "Move this card's scene earlier in the script (whole scene block travels with it).",
+            lambda: self._emit_reorder(-1),
+        )
+        self._btn_down = self._make_tool_button(
+            "Down",
+            "Move this card's scene later in the script (whole scene block travels with it).",
+            lambda: self._emit_reorder(1),
+        )
 
         self._count = QLabel("0 cards")
         self._count.setObjectName("CardNavCount")
@@ -93,6 +104,8 @@ class CardNavigator(QWidget):
         header.addWidget(self._btn_save_inplace)
         header.addWidget(self._btn_save)
         header.addWidget(self._btn_apply)
+        header.addWidget(self._btn_up)
+        header.addWidget(self._btn_down)
         header.addStretch(1)
         header.addWidget(self._count)
 
@@ -450,6 +463,12 @@ class CardNavigator(QWidget):
             return
         # MainWindow snapshots working text once, then applies action-only.
         self.applyCardRequested.emit(block)
+
+    def _emit_reorder(self, direction: int) -> None:
+        block = self.current_block()
+        if block < 0:
+            return
+        self.reorderCardRequested.emit(block, int(direction))
 
     def _emit_save_snapshot(self) -> None:
         self._emit_save(make_snapshot=True)

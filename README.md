@@ -11,7 +11,7 @@ Write plain-text `.fountain` on the left, see a properly formatted screenplay pr
 - Fountain text editor with monospace font and line numbers
 - Syntax highlighting for scene headings, character cues, dialogue, parentheticals, transitions, sections, notes, and title-page keys
 - **Scene navigator** — list of `INT.`/`EXT.` headings, filter, click to jump (View → Show Scene Navigator)
-- **Index cards** *(partial, cards-first)* — editable card detail on the left; version history (`Save ver` / Make top); **Apply** writes scene heading + **action only** (never dialogue); stable ids; markers hidden in preview/PDF
+- **Index cards** *(partial, cards-first)* — editable card detail; versions; **Apply** (action only, never dialogue); **Up/Down** moves the card’s whole scene in the script; stable ids; markers hidden in preview/PDF
 - **Beat board (list)** *(partial)* — `[[beat: …]]` markers, filter, jump (View → Show Beat Board)
 - **Project folder** *(partial)* — File → Open Project Folder… seeds `canon.md` / `beats.md` / `cards.md` and loads `script.fountain` when present
 - **Live split preview** (editor | formatted page) with 300ms debounce — show/hide independently
