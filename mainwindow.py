@@ -34,27 +34,37 @@ Persistence
   (org/app: FountainPad/FountainPad).
 
 File ops
-  New / Open / Save / Save As / Close / Export PDF / Quit.
+  New / Open / Open Project Folder / Save / Save As / Close / Export PDF / Quit.
   Close prompts to save if dirty, then clears to an empty untitled buffer
   (not the first-run sample).
+
+Help
+  Help → FountainPad Help opens resources/help/USER_GUIDE.md in a dialog.
+  Keep that guide updated when behaviour changes. Local build-notes/ is
+  gitignored process documentation — not shipped via Help.
 """
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import QByteArray, QMarginsF, QSettings, Qt, QTimer
-from PySide6.QtGui import QAction, QCloseEvent, QKeySequence, QPageLayout, QPageSize
+from PySide6.QtGui import QAction, QCloseEvent, QFont, QKeySequence, QPageLayout, QPageSize
 from PySide6.QtWidgets import (
     QApplication,
+    QDialog,
+    QDialogButtonBox,
     QFileDialog,
     QLabel,
     QMainWindow,
     QMessageBox,
     QSplitter,
     QStatusBar,
+    QTextBrowser,
     QToolBar,
+    QVBoxLayout,
 )
 
 from editor import FountainEditor
@@ -207,61 +217,61 @@ class MainWindow(QMainWindow):
 
     # --- UI construction -------------------------------------------------
     def _build_actions(self) -> None:
-        self.act_new = QAction("New", self)
+        self.act_new = QAction("&New", self)
         self.act_new.setShortcut(QKeySequence.New)
         self.act_new.setStatusTip("Create a new empty screenplay (prompts if unsaved)")
         self.act_new.triggered.connect(lambda: self.new_file(initial=False))
 
-        self.act_open = QAction("Open…", self)
+        self.act_open = QAction("&Open…", self)
         self.act_open.setShortcut(QKeySequence.Open)
         self.act_open.setStatusTip("Open a .fountain file")
         self.act_open.triggered.connect(self.open_file)
 
-        self.act_close = QAction("Close", self)
+        self.act_close = QAction("&Close", self)
         self.act_close.setShortcut(QKeySequence.Close)
         self.act_close.setStatusTip("Close the current file (prompts if unsaved)")
         self.act_close.triggered.connect(self.close_file)
 
-        self.act_save = QAction("Save", self)
+        self.act_save = QAction("&Save", self)
         self.act_save.setShortcut(QKeySequence.Save)
         self.act_save.setStatusTip("Save the current file")
         self.act_save.triggered.connect(self.save_file)
 
-        self.act_save_as = QAction("Save As…", self)
+        self.act_save_as = QAction("Save &As…", self)
         self.act_save_as.setShortcut(QKeySequence.SaveAs)
         self.act_save_as.setStatusTip("Save the current file under a new name")
         self.act_save_as.triggered.connect(self.save_file_as)
 
-        self.act_export_pdf = QAction("Export PDF…", self)
+        self.act_export_pdf = QAction("Export &PDF…", self)
         self.act_export_pdf.setShortcut(QKeySequence("Ctrl+Shift+E"))
         self.act_export_pdf.setStatusTip("Export the formatted preview as a PDF")
         self.act_export_pdf.triggered.connect(self.export_pdf)
 
-        self.act_quit = QAction("Quit", self)
+        self.act_quit = QAction("&Quit", self)
         self.act_quit.setShortcut(QKeySequence.Quit)
         self.act_quit.setStatusTip("Quit FountainPad")
         self.act_quit.triggered.connect(self.close)
 
-        self.act_open_project = QAction("Open Project Folder…", self)
+        self.act_open_project = QAction("Open &Project Folder…", self)
         self.act_open_project.setShortcut(QKeySequence("Ctrl+Shift+O"))
         self.act_open_project.setStatusTip("Open a project folder (Screenwriting OS structure)")
         self.act_open_project.triggered.connect(self.open_project)
 
-        self.act_toggle_nav = QAction("Show Scene Navigator", self)
+        self.act_toggle_nav = QAction("Show &Scene Navigator", self)
         self.act_toggle_nav.setCheckable(True)
         self.act_toggle_nav.setChecked(True)
         self.act_toggle_nav.setShortcut(QKeySequence("Ctrl+\\"))
         self.act_toggle_nav.setStatusTip("Show or hide the scene list")
         self.act_toggle_nav.triggered.connect(self.toggle_navigator)
 
-        self.act_toggle_cards = QAction("Show Index Cards", self)
+        self.act_toggle_cards = QAction("Show &Index Cards", self)
         self.act_toggle_cards.setCheckable(True)
         self.act_toggle_cards.setChecked(True)
         self.act_toggle_cards.setShortcut(QKeySequence("Ctrl+Shift+C"))
         self.act_toggle_cards.setStatusTip("Show or hide the index cards")
         self.act_toggle_cards.triggered.connect(self.toggle_card_navigator)
 
-        self.act_toggle_beats = QAction("Show Beat Board", self)
+        self.act_toggle_beats = QAction("Show &Beat Board", self)
         self.act_toggle_beats.setCheckable(True)
         self.act_toggle_beats.setChecked(True)
         self.act_toggle_beats.setShortcut(QKeySequence("Ctrl+Shift+B"))
@@ -269,7 +279,7 @@ class MainWindow(QMainWindow):
         self.act_toggle_beats.triggered.connect(self.toggle_beat_board)
 
         # Embedded preview only — independent of detached window.
-        self.act_toggle_preview = QAction("Show Split Preview", self)
+        self.act_toggle_preview = QAction("Show Split Pre&view", self)
         self.act_toggle_preview.setCheckable(True)
         self.act_toggle_preview.setChecked(True)
         self.act_toggle_preview.setShortcut(QKeySequence("Ctrl+P"))
@@ -278,14 +288,14 @@ class MainWindow(QMainWindow):
         )
         self.act_toggle_preview.triggered.connect(self.toggle_split_preview)
 
-        self.act_detach = QAction("Detach Preview Window", self)
+        self.act_detach = QAction("&Detach Preview Window", self)
         self.act_detach.setShortcut(QKeySequence("Ctrl+Shift+P"))
         self.act_detach.setStatusTip(
             "Open a floating preview window (split preview stays available)"
         )
         self.act_detach.triggered.connect(self.detach_preview)
 
-        self.act_reattach = QAction("Reattach Preview", self)
+        self.act_reattach = QAction("&Reattach Preview", self)
         self.act_reattach.setShortcut(QKeySequence("Ctrl+Alt+P"))
         self.act_reattach.setStatusTip(
             "Close the floating preview and show the split preview in the main window"
@@ -293,43 +303,97 @@ class MainWindow(QMainWindow):
         self.act_reattach.triggered.connect(self.reattach_preview)
         self.act_reattach.setEnabled(False)
 
-        self.act_dark = QAction("Dark Mode", self)
+        self.act_dark = QAction("&Dark Mode", self)
         self.act_dark.setCheckable(True)
         self.act_dark.setShortcut(QKeySequence("Ctrl+D"))
         self.act_dark.setStatusTip("Toggle dark theme")
         self.act_dark.triggered.connect(self.toggle_dark_mode)
 
-        self.act_about = QAction("About FountainPad", self)
+        # Edit menu — standard editor commands (source pane, not preview).
+        self.act_undo = QAction("&Undo", self)
+        self.act_undo.setShortcut(QKeySequence.Undo)
+        self.act_undo.setStatusTip("Undo the last edit in the script")
+        self.act_undo.triggered.connect(self.editor.undo)
+
+        self.act_redo = QAction("&Redo", self)
+        self.act_redo.setShortcut(QKeySequence.Redo)
+        self.act_redo.setStatusTip("Redo the last undone edit")
+        self.act_redo.triggered.connect(self.editor.redo)
+
+        self.act_cut = QAction("Cu&t", self)
+        self.act_cut.setShortcut(QKeySequence.Cut)
+        self.act_cut.setStatusTip("Cut the selection to the clipboard")
+        self.act_cut.triggered.connect(self.editor.cut)
+
+        self.act_copy = QAction("&Copy", self)
+        self.act_copy.setShortcut(QKeySequence.Copy)
+        self.act_copy.setStatusTip("Copy the selection to the clipboard")
+        self.act_copy.triggered.connect(self.editor.copy)
+
+        self.act_paste = QAction("&Paste", self)
+        self.act_paste.setShortcut(QKeySequence.Paste)
+        self.act_paste.setStatusTip("Paste from the clipboard into the script")
+        self.act_paste.triggered.connect(self.editor.paste)
+
+        self.act_select_all = QAction("Select &All", self)
+        self.act_select_all.setShortcut(QKeySequence.SelectAll)
+        self.act_select_all.setStatusTip("Select all script text")
+        self.act_select_all.triggered.connect(self.editor.selectAll)
+
+        self.act_help = QAction("FountainPad &Help", self)
+        self.act_help.setShortcut(QKeySequence.HelpContents)
+        self.act_help.setStatusTip("Open the user guide (how menus and panels work)")
+        self.act_help.triggered.connect(self.show_help)
+
+        self.act_about = QAction("&About FountainPad", self)
+        self.act_about.setStatusTip("Version and credits")
         self.act_about.triggered.connect(self.show_about)
 
     def _build_menus(self) -> None:
-        file_menu = self.menuBar().addMenu("&File")
-        file_menu.addAction(self.act_new)
-        file_menu.addAction(self.act_open)
-        file_menu.addAction(self.act_close)
-        file_menu.addSeparator()
-        file_menu.addAction(self.act_save)
-        file_menu.addAction(self.act_save_as)
-        file_menu.addSeparator()
-        file_menu.addAction(self.act_export_pdf)
-        file_menu.addSeparator()
-        file_menu.addAction(self.act_open_project)
-        file_menu.addSeparator()
-        file_menu.addAction(self.act_quit)
+        """Traditional desktop order: File · Edit · View · Help.
 
-        view_menu = self.menuBar().addMenu("&View")
-        view_menu.addAction(self.act_toggle_nav)
-        view_menu.addAction(self.act_toggle_cards)
-        view_menu.addAction(self.act_toggle_beats)
-        view_menu.addSeparator()
-        view_menu.addAction(self.act_toggle_preview)
-        view_menu.addAction(self.act_detach)
-        view_menu.addAction(self.act_reattach)
-        view_menu.addSeparator()
-        view_menu.addAction(self.act_dark)
+        Keep QMenu instances on self so Qt/macOS does not garbage-collect them.
+        """
+        self.menu_file = self.menuBar().addMenu("&File")
+        self.menu_file.addAction(self.act_new)
+        self.menu_file.addAction(self.act_open)
+        self.menu_file.addAction(self.act_open_project)
+        self.menu_file.addSeparator()
+        self.menu_file.addAction(self.act_close)
+        self.menu_file.addSeparator()
+        self.menu_file.addAction(self.act_save)
+        self.menu_file.addAction(self.act_save_as)
+        self.menu_file.addSeparator()
+        self.menu_file.addAction(self.act_export_pdf)
+        self.menu_file.addSeparator()
+        self.menu_file.addAction(self.act_quit)
 
-        help_menu = self.menuBar().addMenu("&Help")
-        help_menu.addAction(self.act_about)
+        self.menu_edit = self.menuBar().addMenu("&Edit")
+        self.menu_edit.addAction(self.act_undo)
+        self.menu_edit.addAction(self.act_redo)
+        self.menu_edit.addSeparator()
+        self.menu_edit.addAction(self.act_cut)
+        self.menu_edit.addAction(self.act_copy)
+        self.menu_edit.addAction(self.act_paste)
+        self.menu_edit.addSeparator()
+        self.menu_edit.addAction(self.act_select_all)
+
+        self.menu_view = self.menuBar().addMenu("&View")
+        self.menu_view.addAction(self.act_toggle_nav)
+        self.menu_view.addAction(self.act_toggle_cards)
+        self.menu_view.addAction(self.act_toggle_beats)
+        self.menu_view.addSeparator()
+        self.menu_view.addAction(self.act_toggle_preview)
+        self.menu_view.addAction(self.act_detach)
+        self.menu_view.addAction(self.act_reattach)
+        self.menu_view.addSeparator()
+        self.menu_view.addAction(self.act_dark)
+
+        # Help last — platform convention.
+        self.menu_help = self.menuBar().addMenu("&Help")
+        self.menu_help.addAction(self.act_help)
+        self.menu_help.addSeparator()
+        self.menu_help.addAction(self.act_about)
 
     def _build_toolbar(self) -> None:
         tb = QToolBar("Main")
@@ -343,11 +407,14 @@ class MainWindow(QMainWindow):
         tb.addSeparator()
         tb.addAction(self.act_toggle_nav)
         tb.addAction(self.act_toggle_cards)
+        tb.addAction(self.act_toggle_beats)
         tb.addAction(self.act_toggle_preview)
         tb.addAction(self.act_detach)
         tb.addAction(self.act_reattach)
         tb.addSeparator()
         tb.addAction(self.act_dark)
+        tb.addSeparator()
+        tb.addAction(self.act_help)
 
     def _update_preview_action_states(self) -> None:
         """Enable/disable detach vs reattach based on floating window presence."""
@@ -1143,6 +1210,55 @@ class MainWindow(QMainWindow):
         self._count_label.setText(f"{chars} chars · {words} words")
         self.navigator.highlight_block(self.editor.textCursor().blockNumber())
 
+    def _help_guide_path(self) -> Path:
+        """Resolve shipped user guide (dev tree or frozen bundle)."""
+        candidates = [
+            Path(__file__).resolve().parent / "resources" / "help" / "USER_GUIDE.md",
+        ]
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            candidates.insert(0, Path(meipass) / "resources" / "help" / "USER_GUIDE.md")
+        for p in candidates:
+            if p.is_file():
+                return p
+        return candidates[-1]
+
+    def show_help(self) -> None:
+        """Open the in-app user guide (Help menu / F1)."""
+        path = self._help_guide_path()
+        dlg = QDialog(self)
+        dlg.setWindowTitle("FountainPad Help")
+        dlg.resize(720, 560)
+        layout = QVBoxLayout(dlg)
+
+        browser = QTextBrowser()
+        browser.setOpenExternalLinks(True)
+        body = QFont()
+        body.setPointSize(12)
+        browser.setFont(body)
+
+        if path.is_file():
+            try:
+                raw = path.read_text(encoding="utf-8")
+            except OSError as exc:
+                raw = f"Could not read help file:\n{path}\n\n{exc}"
+            browser.setMarkdown(raw)
+        else:
+            browser.setPlainText(
+                "Help file not found.\n\n"
+                f"Expected:\n{path}\n\n"
+                "Reinstall or restore resources/help/USER_GUIDE.md."
+            )
+
+        layout.addWidget(browser)
+        buttons = QDialogButtonBox(QDialogButtonBox.Close)
+        close_btn = buttons.button(QDialogButtonBox.Close)
+        if close_btn is not None:
+            close_btn.clicked.connect(dlg.accept)
+        buttons.rejected.connect(dlg.reject)
+        layout.addWidget(buttons)
+        dlg.exec()
+
     def show_about(self) -> None:
         QMessageBox.about(
             self,
@@ -1151,6 +1267,8 @@ class MainWindow(QMainWindow):
             "<p>A clean, focused Fountain screenplay editor.</p>"
             "<p>Preview powered by bundled <b>fountain.js</b> (Matt Daly).</p>"
             "<p>Python · PySide6 · offline-friendly.</p>"
+            "<p>Open <b>Help → FountainPad Help</b> (or press <b>F1</b>) "
+            "for menus, panels, and how partial features are meant to be used.</p>"
             "<p>Split preview and detached preview are independent — "
             "use <b>Reattach Preview</b> to close a floating window and "
             "restore the in-window pane.</p>",

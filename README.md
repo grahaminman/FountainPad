@@ -6,16 +6,18 @@ Write plain-text `.fountain` on the left, see a properly formatted screenplay pr
 
 ## Features
 
+- Traditional menus: **File · Edit · View · Help** (Help last)
+- **In-app Help** — Help → FountainPad Help (or **F1**) opens `resources/help/USER_GUIDE.md` (living guide; marks partial features honestly)
 - Fountain text editor with monospace font and line numbers
 - Syntax highlighting for scene headings, character cues, dialogue, parentheticals, transitions, sections, notes, and title-page keys
 - **Scene navigator** — list of `INT.`/`EXT.` headings, filter, click to jump (View → Show Scene Navigator)
-- **Index cards** — `[[card: Goal|Conflict|Turn]]` list + template buttons (View → Show Index Cards)
-- **Beat board (list)** — `[[beat: …]]` markers, filter, jump (View → Show Beat Board)
-- **Project folder** — File → Open Project Folder… seeds `canon.md` / `beats.md` / `cards.md` and loads `script.fountain` when present
+- **Index cards** *(partial)* — `[[card: Goal|Conflict|Turn]]` list + template buttons (View → Show Index Cards)
+- **Beat board (list)** *(partial)* — `[[beat: …]]` markers, filter, jump (View → Show Beat Board)
+- **Project folder** *(partial)* — File → Open Project Folder… seeds `canon.md` / `beats.md` / `cards.md` and loads `script.fountain` when present
 - **Live split preview** (editor | formatted page) with 300ms debounce — show/hide independently
 - **Detach / reattach preview** — floating window plus in-window split; Reattach restores split
 - **Export PDF** from the formatted preview (File → Export PDF…); Fountain `[[notes]]` hidden in print CSS
-- New / Open / Close / Save / Save As for `.fountain` files
+- New / Open / Close / Save / Save As for `.fountain` files; standard Edit commands (Undo/Redo/Cut/Copy/Paste/Select All)
 - Unsaved-changes tracking and window title indicator
 - Light / Dark mode (editor + preview)
 - Status bar: current scene + character/word counts
@@ -148,10 +150,14 @@ FountainPad/
 │   └── styles/
 │       ├── preview-light.css
 │       └── preview-dark.css
+│   └── help/
+│       └── USER_GUIDE.md      # in-app Help (ships with the app)
 ├── requirements.txt
 ├── README.md
 └── LICENSE
 ```
+
+> Local process notes live in `build-notes/` (gitignored) — not shipped and not for GitHub. End-user help is only `resources/help/USER_GUIDE.md`.
 
 ## Fountain format
 

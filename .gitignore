@@ -18,3 +18,10 @@ dist/
 .DS_Store
 Thumbs.db
 *.fountain.bak
+
+# Local build / process notes — not for GitHub (user Help ships under resources/help/)
+build-notes/
+
+# One-shot local patch helpers
+_menu_help_patch.py
+_stabilize_patch.py

@@ -58,6 +58,12 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 
 ## 3. Feature backlog (detailed)
 
+### UX / docs hygiene (standing)
+- [x] Traditional menu bar **File · Edit · View · Help** (2026-07-24)
+- [x] In-app Help → `resources/help/USER_GUIDE.md` (living; update with features)
+- [x] Local `build-notes/` gitignored (process ledger off GitHub)
+- [ ] Keep USER_GUIDE honest as cards/beats/project mature
+
 ### A. Distribution & trust (product)
 
 | ID | Feature | Notes | Source |

@@ -8,6 +8,14 @@
 
 Desktop Fountain screenplay editor: plain-text source on the left, formatted preview via bundled **fountain.js**, optional scene navigator, PDF export. Stack: **Python 3 + PySide6 + Qt WebEngine**.
 
+## Menus & Help
+
+Traditional order: **File · Edit · View · Help**.
+
+- **Help → FountainPad Help** (F1) opens shipped `resources/help/USER_GUIDE.md` in a `QTextBrowser` dialog (`MainWindow.show_help`).
+- Update that guide whenever behaviour changes; mark unfinished areas **Partial**.
+- Local build process notes: `build-notes/` (gitignored — not GitHub).
+
 ## Module map
 
 | File | Role |

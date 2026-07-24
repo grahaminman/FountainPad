@@ -98,6 +98,7 @@ def main() -> int:
         "preview.html",
         "styles/preview-light.css",
         "styles/preview-dark.css",
+        "help/USER_GUIDE.md",
     ):
         p = res / rel
         assert p.exists(), p
@@ -109,7 +110,10 @@ def main() -> int:
     dark_css = (res / "styles/preview-dark.css").read_text(encoding="utf-8")
     assert "@media print" in light_css and ".note" in light_css
     assert "@media print" in dark_css and ".note" in dark_css
-    print("resources OK (incl. F5 print note hide)")
+    guide = (res / "help/USER_GUIDE.md").read_text(encoding="utf-8")
+    assert "FountainPad" in guide and "Partial" in guide
+    assert "Show Index Cards" in guide or "Index cards" in guide
+    print("resources OK (incl. F5 print note hide + USER_GUIDE)")
 
     w = MainWindow()
     # isVisible() is False until the window is shown (even offscreen).
@@ -118,6 +122,25 @@ def main() -> int:
     assert "EXT. DESERT HIGHWAY" in w.editor.toPlainText()
     assert hasattr(w, "beat_board")
     assert hasattr(w, "card_navigator")
+
+    # Traditional menus: File · Edit · View · Help
+    titles = [a.text().replace("&", "") for a in w.menuBar().actions()]
+    assert "File" in titles and "Edit" in titles and "View" in titles and "Help" in titles, titles
+    # Order should be traditional when all four are present as top-level menus.
+    idx = {name: titles.index(name) for name in ("File", "Edit", "View", "Help")}
+    assert idx["File"] < idx["Edit"] < idx["View"] < idx["Help"], idx
+    assert hasattr(w, "act_help") and hasattr(w, "act_undo")
+    assert hasattr(w, "menu_help")
+    help_path = w._help_guide_path()
+    assert help_path.is_file(), help_path
+    help_menu_texts = [
+        a.text().replace("&", "")
+        for a in w.menu_help.actions()
+        if not a.isSeparator()
+    ]
+    assert "FountainPad Help" in help_menu_texts, help_menu_texts
+    assert "About FountainPad" in help_menu_texts, help_menu_texts
+    print("menus/help OK", titles, help_path.name)
 
     # Scene navigator
     scenes = w.editor.list_scene_headings()
