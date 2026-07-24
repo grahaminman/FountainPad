@@ -65,8 +65,9 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 - [x] P3 empty cards from scenes + Help update (2026-07-24)
 - [x] Cards-first Phase A/B: stable ids, hide notes in preview/PDF, editor dim toggle, Apply card→script (2026-07-24)
 - [x] Editable Index Card detail + version stack + Apply action-only/never dialogue (2026-07-24)
-- [x] Phase C first cut: card scene Up/Down reorder (2026-07-24); drag-drop later
+- [x] Phase C first cut: card scene Up/Down reorder (2026-07-24)
 - [x] Card panel UX: auto-save typing, multi-row buttons, multi-line wrap labels, strip cards/@vN from preview+PDF (2026-07-24)
+- [x] Phase C2: drag-drop card list reorders whole scene (absolute scene index; 2026-07-24)
 - [ ] Keep USER_GUIDE honest as cards/beats/project mature
 
 ### A. Distribution & trust (product)
@@ -93,7 +94,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 | ID | Feature | Notes | Source |
 |---|---|---|---|
 | C1 | **Index card view** | One card per scene: slugline + summary side + optional script peek | **DONE 2026-07-23** (inline `[[card: Type]]` list + filter + jump; View toggle) |
-| C2 | Drag reorder cards → reorder scenes in Fountain | Hard but high value; careful with dual dialogue/notes | **Partial 2026-07-24** — Up/Down moves whole scene block with card (no drag yet) |
+| C2 | Drag reorder cards → reorder scenes in Fountain | Hard but high value; careful with dual dialogue/notes | **DONE 2026-07-24** — Up/Down + drag-drop; whole scene block; multi-card scenes travel together |
 | C3 | Color tags (plot A/B, POV, day/night) | Metadata in Fountain notes or sidecar JSON | FD Beat Board habits |
 | C4 | **Beat board** (freeform canvas) | Beats not 1:1 scenes; link beat → scene(s) | **Partial 2026-07-23** — linear list of `[[beat: …]]` + jump (not freeform canvas) |
 | C5 | Outline lane (linear) | Horizontal/vertical sequence of beats; lighter than full board | FD Outline Editor — list UI is a first step via C4 partial |
@@ -102,7 +103,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 | C8 | Mind-map lite | Optional links between cards — don’t boil ocean v1 | WriterDuet |
 
 **Shipped v1 cards (2026-07-23 evening):** C1 list + jump, C6 template buttons, C4-as-list beats, project folder seeds (`canon.md` / `beats.md` / `cards.md`).  
-**Still open:** C2 reorder, true freeform C4, rich C7 markdown pack sync, scene-summary cards (not only inline markers).
+**Still open:** true freeform C4, rich C7 markdown pack sync, scene-summary cards (not only inline markers).
 
 ### D. Fountain craft & export
 
@@ -201,7 +202,7 @@ Sources sampled 2026-07-21 (non-exhaustive): Final Draft KB/blog (Beat Board, In
 - **Uncommitted 2026-07-23 night:** F5 print CSS for notes hide (light+dark); smoke test rewrite incomplete  
 
 ### Phase 3 — “board + industry exchange”
-- C2 reorder  
+- C2 reorder ✅ (2026-07-24 Up/Down + drag-drop)  
 - C4/C5 beat board or outline lane  
 - F3 FDX  
 - R1/R3 revision lite  

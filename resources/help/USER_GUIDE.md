@@ -1,6 +1,6 @@
 # FountainPad — User Guide
 
-**Last updated:** 2026-07-24 (card auto-save + multi-line panel + clean preview)  
+**Last updated:** 2026-07-24 (card drag-drop scene reorder)  
 **Audience:** someone using the app (not building it)  
 **Honesty rule:** features marked **Partial** work today but are not finished products. If something feels unclear, that is a real UX signal — this guide should explain what to expect.
 
@@ -60,7 +60,7 @@ Standard text editing against the **source editor** (not the preview):
 | **Generate Empty Cards from Scenes…** | **Partial (P3).** Optional empty card stubs under scenes with no card yet. Confirm first. Same as **From scenes** on the Index Cards panel. |
 | **Apply Card to Script** | **Partial.** Pushes the **active card version** into the screenplay: scene heading + **leading action only**. **Dialogue is never changed.** Explicit action — not a silent compile. Ctrl/Cmd+Shift+A. |
 | **Ensure Card IDs** | Assign stable `id=cNNN` on markers that do not have one yet. |
-| **Move Card Scene Up / Down** | **Partial (Phase C).** Moves the **whole scene** owned by the selected card (heading through the line before the next scene). Card markers and dialogue in that scene travel with it. Index Cards **Scene ↑** / **Scene ↓**, or Ctrl/Cmd+Alt+Up/Down. |
+| **Move Card Scene Up / Down** | **Partial (Phase C).** Moves the **whole scene** owned by the selected card. **Scene ↑** / **Scene ↓**, Ctrl/Cmd+Alt+Up/Down, or **drag a card** in the Index Cards list. Card markers and dialogue travel with the scene. |
 
 ### View
 
@@ -141,17 +141,23 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
   - **From scenes** — empty stubs under scenes that have no card yet.
   - **Apply → script** — flush any pending typing, then push the **active** version to the page.
   - **New version** — keep the old text as history and start `v2`, `v3`, …
-  - **Scene ↑ / Scene ↓** — move the card’s whole scene earlier/later in the script.
+  - **Scene ↑ / Scene ↓** — move the card’s whole scene earlier/later (same as drag-drop).
+  - **Drag a card** in the list — drop near another card to place this card’s scene there.
 - **History (versions):**
   - List shows prior snapshots; **Show in editor** loads one into the text box (then auto-saves as active text if you leave it).
   - **Use this version** (or double-click) makes that history entry the **active** version.
 - **Apply rules (important):** updates **scene heading** + **leading action** only. **Character cues and dialogue are never modified.** You can still edit anything in the script afterward.
 - Click a card to jump the script; filter by id/type/text/scene.
 
+### Drag / reorder rules
+
+- Drag targets the **scene** of the card (not a free corkboard).
+- Dropping among cards that share one scene does nothing.
+- Cards without a parent scene cannot drag-reorder until they sit under a heading (or you Apply a draft slug).
+- Multi-card scenes: moving one card moves the **whole shared scene** (all cards in that scene travel together).
+
 ### What is *not* finished
 
-- **Drag-and-drop reorder** — not yet; use **Scene ↑** / **Scene ↓** for now.
-- Multi-card scenes: moving one card moves the **whole shared scene** (all cards in that scene travel together).
 - No separate visual corkboard; storage is still inside the Fountain file.
 - Apply does not rewrite dialogue (by design) and does not replace a whole scene body.
 - Project `cards.md` is still only a seed file (not live pack sync).
@@ -163,7 +169,7 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
 2. **New version** when you want a progress snapshot.  
 3. **Apply → script** when you want that active version’s slug + action on the page (dialogue stays yours).  
 4. To roll back an idea: **Use this version** on an older history row → **Apply → script** again.  
-5. **Scene ↑** / **Scene ↓** moves that card’s **scene block** in the script (not just the list row).  
+5. **Scene ↑** / **Scene ↓**, or **drag the card** in the list, moves that card’s **scene block** in the script.  
 6. Keep writing dialogue and pages freely in the script.
 
 These are **notes toward the draft**, not instructions the script must obey.

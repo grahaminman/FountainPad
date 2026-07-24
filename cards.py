@@ -953,6 +953,70 @@ def reorder_card_scene(
     return new_text, f"Moved scene {moved}: {heading}", new_block
 
 
+
+def reorder_card_scene_steps(
+    text: str,
+    card_block: int,
+    steps: int,
+    is_scene_heading: Callable[[str], bool],
+) -> Tuple[str, str, int]:
+    """Move the card's scene by N scene-slots (negative = earlier)."""
+    if steps == 0:
+        return text, "Already in that position.", int(card_block)
+    direction = -1 if steps < 0 else 1
+    remaining = abs(int(steps))
+    block = int(card_block)
+    last_msg = "No move."
+    for _ in range(remaining):
+        text, last_msg, new_block = reorder_card_scene(
+            text, block, direction, is_scene_heading
+        )
+        if new_block < 0:
+            return text, last_msg, block
+        block = new_block
+    return text, last_msg, block
+
+
+def reorder_card_scene_to_scene_index(
+    text: str,
+    card_block: int,
+    target_scene_index: int,
+    is_scene_heading: Callable[[str], bool],
+) -> Tuple[str, str, int]:
+    """
+    Move the scene owned by card_block so it lands at target_scene_index
+    among real scene headings (0 = first scene).
+    """
+    plain = text.splitlines()
+    cards = list_cards_from_text(text, is_scene_heading)
+    info = next((c for c in cards if c.block_number == int(card_block)), None)
+    if info is None:
+        return text, "Card not found.", -1
+
+    starts = _real_scene_starts(plain, is_scene_heading)
+    if len(starts) < 2:
+        return text, "Need at least two scenes to reorder.", -1
+
+    s0, _s1, err = _owned_scene_block_for_card(plain, info, is_scene_heading)
+    if err:
+        return text, err, -1
+    try:
+        cur_idx = starts.index(s0)
+    except ValueError:
+        return text, "Scene not in document order list.", -1
+
+    target = int(target_scene_index)
+    if target < 0:
+        target = 0
+    if target >= len(starts):
+        target = len(starts) - 1
+    if target == cur_idx:
+        return text, "Already in that position.", int(card_block)
+
+    steps = target - cur_idx
+    return reorder_card_scene_steps(text, card_block, steps, is_scene_heading)
+
+
 def strip_cards_for_preview(
     text: str,
     is_scene_heading: Callable[[str], bool],

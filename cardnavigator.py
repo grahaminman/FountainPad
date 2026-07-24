@@ -15,6 +15,7 @@ from typing import Any, List, Optional
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QComboBox,
     QHBoxLayout,
     QLabel,
@@ -42,6 +43,7 @@ class CardNavigator(QWidget):
     saveCardRequested = Signal(int, str, str, object, str, bool)
     setActiveVersionRequested = Signal(int, str)
     reorderCardRequested = Signal(int, int)
+    reorderCardToSceneRequested = Signal(int, int)  # card_block, target_scene_index
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -98,12 +100,12 @@ class CardNavigator(QWidget):
         )
         self._btn_up = self._make_tool_button(
             "Scene ↑",
-            "Move this card's whole scene earlier in the script.",
+            "Move this card's whole scene earlier (or drag the card in the list).",
             lambda: self._emit_reorder(-1),
         )
         self._btn_down = self._make_tool_button(
             "Scene ↓",
-            "Move this card's whole scene later in the script.",
+            "Move this card's whole scene later (or drag the card in the list).",
             lambda: self._emit_reorder(1),
         )
         # Compat alias (older tests / docs may mention Save inplace)
@@ -135,6 +137,14 @@ class CardNavigator(QWidget):
         self._list.setUniformItemSizes(False)
         self._list.setSpacing(3)
         self._list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # Drag-drop reorders the card's whole scene in the Fountain file (C2).
+        self._list.setDragEnabled(True)
+        self._list.setAcceptDrops(True)
+        self._list.setDropIndicatorShown(True)
+        self._list.setDefaultDropAction(Qt.MoveAction)
+        self._list.setDragDropMode(QAbstractItemView.InternalMove)
+        self._list.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._list.model().rowsMoved.connect(self._on_list_rows_moved)
         self._list.itemActivated.connect(self._emit_item)
         self._list.itemClicked.connect(self._on_item_clicked)
         self._list.currentItemChanged.connect(self._on_current_changed)
@@ -630,6 +640,90 @@ class CardNavigator(QWidget):
         if block < 0:
             return
         self.applyCardRequested.emit(block)
+
+
+    def _on_list_rows_moved(self, _parent, start, end, _dest, row):
+        """After a drag-drop visual move, map to scene reorder in the script.
+
+        Qt has already shuffled the list rows. We derive the desired scene
+        index from the post-drop list (first appearance of each scene), then
+        ask MainWindow to move the Fountain scene block and rebuild the list.
+        """
+        if self._updating:
+            return
+        # Single-item drags only
+        if start != end:
+            return
+        from_row = int(start)
+        to_row = int(row)
+        # When moving down, Qt reports destination after removal
+        if to_row > from_row:
+            to_row -= 1
+        if to_row == from_row:
+            return
+
+        blocks = []
+        for i in range(self._list.count()):
+            item = self._list.item(i)
+            if item is None:
+                continue
+            blocks.append(int(item.data(Qt.UserRole)))
+        if not blocks or to_row < 0 or to_row >= len(blocks):
+            self._rebuild_list()
+            return
+
+        moved_block = blocks[to_row]
+        scene_of = {}
+        for info in self._all_infos:
+            scene_of[int(info.block_number)] = int(info.scene_block)
+
+        moved_scene = scene_of.get(moved_block, -1)
+        if moved_scene < 0:
+            self._status.setText(
+                "Drag reorder needs a parent scene (Apply a slug first)"
+            )
+            self._rebuild_list()
+            return
+
+        # Document scene order (unique, first appearance in infos = script order)
+        doc_scenes = []
+        seen = set()
+        for info in self._all_infos:
+            sb = int(info.scene_block)
+            if sb < 0 or sb in seen:
+                continue
+            seen.add(sb)
+            doc_scenes.append(sb)
+        if len(doc_scenes) < 2:
+            self._rebuild_list()
+            return
+        try:
+            cur_idx = doc_scenes.index(moved_scene)
+        except ValueError:
+            self._rebuild_list()
+            return
+
+        # Desired order from post-drop list: first time each scene appears
+        desired = []
+        seen2 = set()
+        for b in blocks:
+            sc = scene_of.get(b, -1)
+            if sc < 0 or sc in seen2:
+                continue
+            seen2.add(sc)
+            desired.append(sc)
+        if moved_scene not in desired:
+            self._rebuild_list()
+            return
+        target_idx = desired.index(moved_scene)
+        if target_idx == cur_idx:
+            # Visual shuffle among same-scene cards only
+            self._status.setText("Same scene — no reorder")
+            self._rebuild_list()
+            return
+
+        self.flush_pending_save()
+        self.reorderCardToSceneRequested.emit(moved_block, int(target_idx))
 
     def _emit_reorder(self, direction: int) -> None:
         self.flush_pending_save()

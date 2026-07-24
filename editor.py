@@ -533,6 +533,21 @@ class FountainEditor(QPlainTextEdit):
             self._replace_all_text(new_text)
         return message, int(new_block) if new_block is not None else -1
 
+    def reorder_card_scene_to_scene_index(
+        self, card_block: int, target_scene_index: int
+    ) -> tuple[str, int]:
+        """Move the scene owned by this card to an absolute scene index."""
+        text = self.toPlainText()
+        new_text, message, new_block = cards_mod.reorder_card_scene_to_scene_index(
+            text,
+            int(card_block),
+            int(target_scene_index),
+            self.is_scene_heading,
+        )
+        if new_text != text:
+            self._replace_all_text(new_text)
+        return message, int(new_block) if new_block is not None else -1
+
     def set_hide_card_markers(self, hide: bool) -> None:
         self._highlighter.set_hide_card_markers(hide)
 

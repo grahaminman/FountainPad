@@ -348,6 +348,35 @@ def main() -> int:
     assert hasattr(w.card_navigator, "_btn_up") and hasattr(w.card_navigator, "_btn_down")
     print("Phase C reorder OK", msg_r, msg_r2)
 
+    # Phase C2: absolute scene-index reorder (drag-drop path)
+    w.editor.setPlainText(
+        "Title: Drag\n\n"
+        "INT. ONE - DAY\n\n"
+        "A1\n\n"
+        "[[card: id=c201 | Note]]\n"
+        "n1\n\n"
+        "INT. TWO - NIGHT\n\n"
+        "A2\n\n"
+        "[[card: id=c202 | Note]]\n"
+        "n2\n\n"
+        "INT. THREE - DAY\n\n"
+        "A3\n\n"
+        "[[card: id=c203 | Note]]\n"
+        "n3\n"
+    )
+    infos_d2 = w.editor.list_card_infos()
+    c3 = next(i for i in infos_d2 if i.card_id == "c203")
+    msg_d, nb_d = w.editor.reorder_card_scene_to_scene_index(c3.block_number, 0)
+    text_d = w.editor.toPlainText()
+    assert text_d.index("INT. THREE") < text_d.index("INT. ONE") < text_d.index("INT. TWO"), text_d
+    assert "[[card: id=c203" in text_d and "A3" in text_d
+    # drag plumbing present
+    assert hasattr(w.card_navigator, "reorderCardToSceneRequested")
+    assert hasattr(w.card_navigator, "_on_list_rows_moved")
+    from PySide6.QtWidgets import QAbstractItemView
+    assert w.card_navigator._list.dragDropMode() == QAbstractItemView.InternalMove
+    print("Phase C2 drag-path reorder OK", msg_d)
+
     # Project folder seeds
     with tempfile.TemporaryDirectory() as td:
         project = Path(td) / "demo_project"

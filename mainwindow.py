@@ -195,6 +195,9 @@ class MainWindow(QMainWindow):
         self.card_navigator.saveCardRequested.connect(self.save_card_from_panel)
         self.card_navigator.setActiveVersionRequested.connect(self.set_card_active_version)
         self.card_navigator.reorderCardRequested.connect(self.reorder_card_scene)
+        self.card_navigator.reorderCardToSceneRequested.connect(
+            self.reorder_card_scene_to_index
+        )
         self.beat_board.beatActivated.connect(self._on_beat_activated)
 
         # Debounce navigator rebuild while typing (cheap, but no need every keystroke).
@@ -1071,6 +1074,38 @@ class MainWindow(QMainWindow):
                     break
             block = target.block_number
         self.reorder_card_scene(int(block), int(direction))
+
+    def reorder_card_scene_to_index(self, card_block: int, target_scene_index: int) -> None:
+        """Phase C2: drag-drop — move card's scene to an absolute scene index."""
+        if hasattr(self.card_navigator, "flush_pending_save"):
+            self.card_navigator.flush_pending_save()
+        before = self.editor.toPlainText()
+        message, new_block = self.editor.reorder_card_scene_to_scene_index(
+            int(card_block), int(target_scene_index)
+        )
+        after = self.editor.toPlainText()
+        if after != before:
+            self._dirty = True
+            self._update_title()
+            self._refresh_card_navigator()
+            self._refresh_navigator()
+            self._sync_previews(immediate=True)
+            self._update_status()
+            if not self._cards_visible:
+                self.toggle_card_navigator(True)
+            if new_block >= 0:
+                for row in range(self.card_navigator._list.count()):
+                    item = self.card_navigator._list.item(row)
+                    if item and int(item.data(Qt.UserRole)) == new_block:
+                        self.card_navigator._updating = True
+                        self.card_navigator._list.setCurrentRow(row)
+                        self.card_navigator._updating = False
+                        break
+                self.editor.goto_block(new_block)
+        else:
+            # Drop may have shuffled the QListWidget visually — rebuild from file.
+            self._refresh_card_navigator()
+        self.statusBar().showMessage(message or "Reorder finished", 5000)
 
     def reorder_card_scene(self, card_block: int, direction: int) -> None:
         """Phase C: move the scene owned by this card up/down in the Fountain file."""
