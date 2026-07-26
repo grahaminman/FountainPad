@@ -49,6 +49,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QCompleter, QPlainTextEdit, QTextEdit, QWidget
 
 import cards as cards_mod
+import fountain_tools as fountain_tools
 
 
 class FountainHighlighter(QSyntaxHighlighter):
@@ -205,9 +206,18 @@ class FountainHighlighter(QSyntaxHighlighter):
 
         # Character cue → next non-blank lines are dialogue (block state 1).
         prev_state = self.previousBlockState()
-        if self.re_character.match(stripped) and not stripped.endswith(":"):
+        m_char = self.re_character.match(stripped)
+        if m_char and not stripped.endswith(":"):
             if len(stripped) <= 40 and not stripped.startswith("[["):
                 self.setFormat(0, len(text), self.fmt_character)
+                # Dual dialogue caret (^) — emphasise trailing marker
+                if stripped.rstrip().endswith("^") or (m_char.group(2) or "").strip() == "^":
+                    caret_idx = text.rfind("^")
+                    if caret_idx >= 0:
+                        dual = QTextCharFormat(self.fmt_character)
+                        dual.setFontUnderline(True)
+                        dual.setForeground(QColor("#c026d3" if not self._dark else "#e879f9"))
+                        self.setFormat(caret_idx, 1, dual)
                 self.setCurrentBlockState(1)
                 return
 
@@ -393,109 +403,52 @@ class FountainEditor(QPlainTextEdit):
         self.setExtraSelections([selection])
 
     # ------------------------------------------------------------------
-    # Autocomplete support
+    # Autocomplete support (v2 — context-aware)
     # ------------------------------------------------------------------
 
     def _schedule_completion_update(self) -> None:
         self._completion_timer.start()
 
-    def update_completions(self) -> None:
-        """Rebuild the completion list from the current document."""
-        text = self.toPlainText()
-        suggestions: list[str] = []
+    def _in_title_page(self) -> bool:
+        """True if the cursor block is still inside the Fountain title page."""
+        _vals, end = fountain_tools.parse_title_page(self.toPlainText())
+        return self.textCursor().blockNumber() < end
 
-        # Static common prefixes (always useful)
-        suggestions.extend(
-            [
-                "INT. ",
-                "EXT. ",
-                "I/E. ",
-                "EST. ",
-                ".HEADING ",
-                "CUT TO:",
-                "FADE TO:",
-                "SMASH CUT TO:",
-                "MATCH CUT TO:",
-                "FADE IN:",
-                "FADE OUT.",
-                "DISSOLVE TO:",
-                "(CONT'D)",
-                "(V.O.)",
-                "(O.S.)",
-                "(O.C.)",
-                "(CONTINUOUS)",
-            ]
+    def _line_context(self) -> str:
+        cursor = self.textCursor()
+        block_text = cursor.block().text()[: cursor.positionInBlock()]
+        return fountain_tools.detect_completion_context(
+            block_text, self._in_title_page()
         )
 
-        # Full scene headings + bare locations for reuse
-        for _bn, heading in self.list_scene_headings():
-            if heading not in suggestions:
-                suggestions.append(heading)
-            m = re.match(
-                r"^(?:INT|EXT|EST|I/?E|INT\./EXT|INT/EXT)[\.\s]+(.+?)(?:\s*-\s*.+)?$",
-                heading,
-                re.IGNORECASE,
-            )
-            if m:
-                loc = m.group(1).strip(" .")
-                if loc and loc not in suggestions:
-                    suggestions.append(loc)
-
-        # Character names (skip scene headings / transitions / notes)
-        re_char = self._highlighter.re_character
-        for line in text.splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith("[[") or stripped.startswith("#"):
-                continue
-            if self.is_scene_heading(stripped):
-                continue
-            if self._highlighter.re_transition.match(
-                stripped
-            ) or self._highlighter.re_transition_gt.match(stripped):
-                continue
-            if self._highlighter.re_parenthetical.match(stripped):
-                continue
-            m = re_char.match(stripped)
-            if not m:
-                continue
-            name = m.group(1).strip()
-            if not name or name in suggestions:
-                continue
-            # Avoid all-caps action lines that look like sentences
-            if "  " in name or len(name) > 40:
-                continue
-            suggestions.append(name)
-            cont = f"{name} (CONT'D)"
-            if cont not in suggestions:
-                suggestions.append(cont)
-
-        # Deduplicate while preserving order
+    def update_completions(self) -> None:
+        """Rebuild completion list for the active typing context."""
+        text = self.toPlainText()
+        ctx = self._line_context()
+        suggestions = fountain_tools.completion_suggestions(
+            text, ctx, self.is_scene_heading
+        )
+        # Deduplicate preserve order
         seen: set[str] = set()
         unique: list[str] = []
         for s in suggestions:
             if s not in seen:
                 seen.add(s)
                 unique.append(s)
-
         self._completion_model.setStringList(unique)
+        self._completion_context = ctx
 
     def _completion_prefix(self) -> str:
-        """Text from start of current line (or last word) used as completer prefix."""
+        """Prefix used to filter the completer popup."""
         cursor = self.textCursor()
         block_text = cursor.block().text()[: cursor.positionInBlock()]
-        # Prefer whole line prefix for scene/character lines; fall back to last token.
         stripped_line = block_text.lstrip()
         if not stripped_line:
             return ""
-        # If line looks like a partial scene heading / transition / paren, use full line content
-        upper = stripped_line.upper()
-        if (
-            upper.startswith(("INT", "EXT", "EST", "I/E", "I/E.", "CUT", "FADE", "SMASH", "MATCH", "."))
-            or stripped_line.startswith("(")
-        ):
+        ctx = getattr(self, "_completion_context", None) or self._line_context()
+        if ctx in ("scene", "transition", "title", "character", "extension"):
             return stripped_line
-        # Character-ish: last run of word chars / spaces / apostrophes on the line
-        m = re.search(r"([A-Za-z0-9 .'()\-]+)$", stripped_line)
+        m = re.search(r"([A-Za-z0-9 .'()\^\-]+)$", stripped_line)
         return m.group(1) if m else stripped_line
 
     def _insert_completion(self, completion: str) -> None:
@@ -503,13 +456,12 @@ class FountainEditor(QPlainTextEdit):
         cursor = self.textCursor()
         prefix = self._completion_prefix()
         if prefix:
-            # Move back over the prefix characters actually present before the cursor
             block_text = cursor.block().text()[: cursor.positionInBlock()]
-            if block_text.endswith(prefix):
+            # Match prefix case-insensitively at end of line-before-cursor
+            if block_text.lower().endswith(prefix.lower()):
                 for _ in range(len(prefix)):
                     cursor.deletePreviousChar()
             else:
-                # Fallback: delete only the trailing token length
                 token = prefix.split()[-1] if prefix.split() else prefix
                 if block_text.upper().endswith(token.upper()):
                     for _ in range(len(token)):
@@ -519,19 +471,21 @@ class FountainEditor(QPlainTextEdit):
 
     def _show_completions(self, force: bool = False) -> None:
         """Show popup filtered by the current line/token prefix."""
+        self.update_completions()
         prefix = self._completion_prefix()
         self._completer.setCompletionPrefix(prefix)
         cr = self.cursorRect()
+        popup = self._completer.popup()
         cr.setWidth(
-            self._completer.popup().sizeHintForColumn(0)
-            + self._completer.popup().verticalScrollBar().sizeHint().width()
+            popup.sizeHintForColumn(0)
+            + popup.verticalScrollBar().sizeHint().width()
             + 24
         )
         if force or self._completer.completionCount() > 0:
             self._completer.complete(cr)
 
     def keyPressEvent(self, event) -> None:  # noqa: N802
-        # Ctrl/Cmd+Space — force completer (handle before super so no space is inserted)
+        # Ctrl/Cmd+Space — force completer
         ctrl_or_cmd = bool(event.modifiers() & (Qt.ControlModifier | Qt.MetaModifier))
         if ctrl_or_cmd and event.key() == Qt.Key_Space:
             self._show_completions(force=True)
@@ -539,7 +493,6 @@ class FountainEditor(QPlainTextEdit):
             return
 
         if self._completer.popup().isVisible():
-            # Let the completer handle navigation / accept / dismiss
             if event.key() in (
                 Qt.Key_Enter,
                 Qt.Key_Return,
@@ -552,19 +505,44 @@ class FountainEditor(QPlainTextEdit):
 
         super().keyPressEvent(event)
 
-        # Don't auto-popup while modifiers-only / navigation
         if event.text() and not ctrl_or_cmd:
             cursor = self.textCursor()
             block_text = cursor.block().text()[: cursor.positionInBlock()]
             stripped = block_text.strip()
             upper = stripped.upper()
-            # Scene prefixes, forced heading, or typing uppercase character-ish line
-            if (
-                upper.endswith(("INT.", "EXT.", "I/E.", "EST.", "INT", "EXT"))
-                or stripped == "."
-                or (len(stripped) >= 2 and stripped.isupper() and stripped.replace(" ", "").isalnum())
-            ):
+            ctx = fountain_tools.detect_completion_context(
+                block_text, self._in_title_page()
+            )
+            should = False
+            if ctx in ("scene", "character", "title", "extension", "transition"):
+                should = len(stripped) >= 1
+            elif upper.endswith(("INT.", "EXT.", "I/E.", "EST.")) or stripped == ".":
+                should = True
+            elif len(stripped) >= 2 and stripped.isupper() and stripped.replace(" ", "").replace("^", "").isalnum():
+                should = True
+            if should:
                 self._show_completions(force=False)
+
+    def insert_dual_dialogue_caret(self) -> None:
+        """Append dual-dialogue caret (^) to the current character cue line."""
+        cursor = self.textCursor()
+        block = cursor.block()
+        text = block.text().rstrip()
+        stripped = text.strip()
+        if not stripped:
+            cursor.insertText("^")
+            self.setTextCursor(cursor)
+            return
+        # If already has caret, do nothing
+        if stripped.endswith("^"):
+            return
+        # Move to end of block and insert space + caret
+        cursor.setPosition(block.position() + len(block.text()))
+        if text.endswith(" "):
+            cursor.insertText("^")
+        else:
+            cursor.insertText(" ^")
+        self.setTextCursor(cursor)
 
     def is_scene_heading(self, text: str) -> bool:
         """True if a line is a Fountain scene heading (INT/EXT or forced .heading)."""

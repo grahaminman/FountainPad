@@ -77,6 +77,9 @@ from beatboard import BeatBoard
 from projectbinder import ProjectBinder
 import project as project_mod
 from preview import FountainPreview, PreviewWindow
+import fountain_tools as fountain_tools
+from titlepage import TitlePageDialog
+from finddialogs import FindDialog, FindCharacterDialog
 
 APP_ORG = "FountainPad"
 APP_NAME = "FountainPad"
@@ -512,6 +515,37 @@ class MainWindow(QMainWindow):
         self.act_select_all.setStatusTip("Select all script text")
         self.act_select_all.triggered.connect(self.editor.selectAll)
 
+        self.act_find = QAction("&Find…", self)
+        self.act_find.setShortcut(QKeySequence.Find)
+        self.act_find.setStatusTip("Find text in the script")
+        self.act_find.triggered.connect(self.show_find_dialog)
+
+        self.act_find_next = QAction("Find &Next", self)
+        self.act_find_next.setShortcut(QKeySequence.FindNext)
+        self.act_find_next.setStatusTip("Find the next match")
+        self.act_find_next.triggered.connect(self.find_next)
+
+        self.act_find_character = QAction("Find C&haracter Dialogue…", self)
+        self.act_find_character.setShortcut(QKeySequence("Ctrl+Shift+F"))
+        self.act_find_character.setStatusTip(
+            "List all dialogue blocks for a character and jump to one"
+        )
+        self.act_find_character.triggered.connect(self.show_find_character_dialog)
+
+        self.act_title_page = QAction("&Title Page…", self)
+        self.act_title_page.setShortcut(QKeySequence("Ctrl+Shift+T"))
+        self.act_title_page.setStatusTip(
+            "Edit Fountain title-page fields (Title, Author, …)"
+        )
+        self.act_title_page.triggered.connect(self.edit_title_page)
+
+        self.act_dual_caret = QAction("Mark Dual Dialogue (^)", self)
+        self.act_dual_caret.setShortcut(QKeySequence("Ctrl+Shift+D"))
+        self.act_dual_caret.setStatusTip(
+            "Add Fountain dual-dialogue caret (^) on the current character cue"
+        )
+        self.act_dual_caret.triggered.connect(self.insert_dual_dialogue_caret)
+
         self.act_cards_from_scenes = QAction("Generate Empty &Cards from Scenes…", self)
         self.act_cards_from_scenes.setStatusTip(
             "Insert optional empty card notes under scenes that have none"
@@ -595,6 +629,13 @@ class MainWindow(QMainWindow):
         self.menu_edit.addAction(self.act_paste)
         self.menu_edit.addSeparator()
         self.menu_edit.addAction(self.act_select_all)
+        self.menu_edit.addSeparator()
+        self.menu_edit.addAction(self.act_find)
+        self.menu_edit.addAction(self.act_find_next)
+        self.menu_edit.addAction(self.act_find_character)
+        self.menu_edit.addSeparator()
+        self.menu_edit.addAction(self.act_title_page)
+        self.menu_edit.addAction(self.act_dual_caret)
         self.menu_edit.addSeparator()
         self.menu_edit.addAction(self.act_cards_from_scenes)
         self.menu_edit.addAction(self.act_apply_card)
@@ -2182,12 +2223,15 @@ class MainWindow(QMainWindow):
             return
         body = self.editor.toPlainText()
         chars = len(body)
-        words = len(body.split()) if body.strip() else 0
+        pages, minutes, _lines, words = fountain_tools.estimate_pages(body)
         scene = self.editor.current_scene_heading() or "—"
         if len(scene) > 60:
             scene = scene[:57] + "…"
         self._scene_label.setText(f"Scene: {scene}")
-        self._count_label.setText(f"{chars} chars · {words} words")
+        # Rough screenplay estimate (~55 lines/page; ~1 min/page)
+        self._count_label.setText(
+            f"{chars} chars · {words} words · ~{pages:g} pp · ~{minutes:g} min"
+        )
         self.navigator.highlight_block(self.editor.textCursor().blockNumber())
 
     def _help_guide_path(self) -> Path:
@@ -2203,7 +2247,69 @@ class MainWindow(QMainWindow):
                 return p
         return candidates[-1]
 
+    def show_find_dialog(self) -> None:
+        """Open Find dialog for the source editor."""
+        if self._doc_kind == "markdown":
+            self.statusBar().showMessage("Find works in the Fountain script view", 3000)
+            return
+        if not hasattr(self, "_find_dialog") or self._find_dialog is None:
+            self._find_dialog = FindDialog(self.editor, self)
+        # Seed with selection if any
+        cur = self.editor.textCursor()
+        if cur.hasSelection():
+            self._find_dialog.set_needle(cur.selectedText().replace("\u2029", " "))
+        self._find_dialog.show()
+        self._find_dialog.raise_()
+        self._find_dialog.activateWindow()
+        self._find_dialog._needle.setFocus()
+
+    def find_next(self) -> None:
+        if self._doc_kind == "markdown":
+            return
+        if not hasattr(self, "_find_dialog") or self._find_dialog is None:
+            self.show_find_dialog()
+            return
+        self._find_dialog.find_next()
+
+    def show_find_character_dialog(self) -> None:
+        if self._doc_kind == "markdown":
+            self.statusBar().showMessage("Switch to the script to find character lines", 3000)
+            return
+        dlg = FindCharacterDialog(self.editor, self.editor.is_scene_heading, self)
+        dlg.refresh()
+        dlg.exec()
+
+    def edit_title_page(self) -> None:
+        """Edit Fountain title-page keys via a simple form."""
+        if self._doc_kind == "markdown":
+            self.statusBar().showMessage("Title page applies to the Fountain script", 3000)
+            return
+        text = self.editor.toPlainText()
+        values, _end = fountain_tools.parse_title_page(text)
+        dlg = TitlePageDialog(values, self)
+        if dlg.exec() != QDialog.Accepted:
+            return
+        new_text = fountain_tools.replace_title_page(text, dlg.values())
+        if new_text != text:
+            self.editor._replace_all_text(new_text)
+            self._dirty = True
+            self._update_title()
+            self._sync_previews(immediate=True)
+            self._update_status()
+            self.statusBar().showMessage("Title page updated", 3000)
+        else:
+            self.statusBar().showMessage("Title page unchanged", 2000)
+
+    def insert_dual_dialogue_caret(self) -> None:
+        if self._doc_kind == "markdown":
+            return
+        self.editor.insert_dual_dialogue_caret()
+        self.statusBar().showMessage(
+            "Dual dialogue: second character cue ends with ^ (Fountain)", 4000
+        )
+
     def show_help(self) -> None:
+
         """Open the in-app user guide (Help menu / F1)."""
         path = self._help_guide_path()
         dlg = QDialog(self)

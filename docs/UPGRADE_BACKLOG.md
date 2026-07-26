@@ -91,7 +91,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 | N2 | This-scene / this-character stats | Extend status bar | Highland-ish / FD |
 | N3 | Go to scene / character palette | Cmd/Ctrl+P style | General editor UX |
 | N4 | Section/`#` outline tree | Fountain sections as binder | **DONE 2026-07-26** — Outline tree (sections nest by `#` depth; scenes under nearest section); filter; jump; card-body slugs skipped |
-| N5 | Page count estimate in preview | Writers obsess over pages | Universal |
+| N5 | Page count estimate in preview | **DONE 2026-07-26** — status bar ~pp / ~min (rough; ~55 lines/page) |
 
 ### C. Cards & boards (explicit Graham ask + FD/WriterDuet)
 
@@ -117,9 +117,9 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 | F1 | Stronger Fountain compliance / edge cases | Forced action `!`, lyrics, etc. | johnaugust.com / Highland |
 | F2 | PDF export (paginated) | From preview engine or print CSS | **DONE 2026-07-23** (WebEngine printToPdf, Letter, light theme) |
 | F3 | FDX import/export (best effort) | Collaboration with FD users | Industry |
-| F4 | Title page editor | Structured fields → Fountain title page | Universal |
+| F4 | Title page editor | **DONE 2026-07-26** — Edit → Title Page… form → Fountain keys |
 | F5 | Hide/show `[[notes]]` in preview/print | Common Fountain need | **DONE 2026-07-23** (print CSS) |
-| F6 | Find in script / find character cues | | Universal |
+| F6 | Find in script / find character cues | **DONE 2026-07-26** — Find + Find Character Dialogue |
 | F7 | Snapshot / version sidebar | Local copies dated — not full Git UI | Process / revise |
 | F8 | Dark mode polish + focus mode | Distraction-free | Highland sprint culture |
 
@@ -161,11 +161,12 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 
 | ID | Feature | Notes |
 |---|---|---|
-| Q1 | Better autocomplete for character names | From seen cues |
+| Q1 | Better autocomplete for character names | **DONE 2026-07-26 v2** — context-aware (scene/character/title/transition/extension); Ctrl/Cmd+Space |
 | Q2 | Smart tab / element cycling | FD-style Tab between element types — controversial in Fountain world; optional |
 | Q3 | Goal / sprint timer | Highland |
 | Q4 | Gender / character frequency report | Highland-style analytics lite |
 | Q5 | Custom preview CSS / page size | |
+| F1b | Dual dialogue polish | **DONE 2026-07-26** — caret highlight, preview CSS, Mark Dual Dialogue action |
 
 ---
 

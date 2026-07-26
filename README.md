@@ -9,7 +9,11 @@ Write plain-text `.fountain` on the left, see a properly formatted screenplay pr
 - Traditional menus: **File · Edit · View · Help** (Help last)
 - **In-app Help** — Help → FountainPad Help (or **F1**) opens `resources/help/USER_GUIDE.md` (living guide; marks partial features honestly)
 - Fountain text editor with monospace font and line numbers
-- **Autocomplete** — Ctrl/Cmd+Space (also auto on scene prefixes / character cues); characters, locations, scene headings, common elements from the open script
+- **Autocomplete v2** — context-aware (scene / character / title / transitions); Ctrl/Cmd+Space
+- **Find** + **Find character dialogue** (list a character’s lines and jump)
+- **Title page builder** — Edit → Title Page… (Fountain keys at file head)
+- **Dual dialogue** — `NAME ^` caret highlight + clearer side-by-side preview; Edit → Mark Dual Dialogue
+- **Page estimate** in the status bar (~pages / ~minutes)
 - Syntax highlighting for scene headings, character cues, dialogue, parentheticals, transitions, sections, notes, and title-page keys
 - **Outline navigator (N4)** — Fountain `#` / `##` sections + `INT.`/`EXT.` scenes in a tree; filter; click to jump (View → Show Scene Navigator). Section lines stay in source/outline only — hidden from preview/PDF
 - **Index cards** *(partial, cards-first)* — type in the panel (auto-saves); multi-line labels; versions; **Apply → script** (action only, never dialogue); **Scene ↑/↓** or **drag** a card to move its whole scene; stable ids; cards/`@vN` stripped from preview/PDF
@@ -121,7 +125,11 @@ Exact package names vary by distro; PySide6 wheels bundle most of Qt.
 | Ctrl/Cmd+Shift+P | Detach preview window |
 | Ctrl/Cmd+Alt+P | Reattach preview (close float + show split) |
 | Ctrl/Cmd+D | Toggle dark mode |
-| Ctrl/Cmd+Space | Autocomplete (characters / scenes / elements) |
+| Ctrl/Cmd+Space | Autocomplete (context-aware) |
+| Ctrl/Cmd+F | Find |
+| Ctrl/Cmd+Shift+F | Find character dialogue |
+| Ctrl/Cmd+Shift+T | Title page builder |
+| Ctrl/Cmd+Shift+D | Mark dual dialogue (^) |
 | Ctrl/Cmd+Q | Quit |
 
 ## Planning docs (product / later)
@@ -140,7 +148,10 @@ Not required to run the app — captured for future work:
 ```
 FountainPad/
 ├── main.py              # Entry point
-├── editor.py            # Editor + highlighter + scene/card/beat helpers
+├── editor.py            # Editor + highlighter + autocomplete + scene/card/beat helpers
+├── fountain_tools.py    # Shared craft helpers (stats, title page, completions, find)
+├── titlepage.py         # Title page builder dialog
+├── finddialogs.py       # Find + Find Character Dialogue
 ├── navigator.py         # Scene navigator list + filter
 ├── cardnavigator.py     # Index cards list + Goal/Conflict/Turn templates
 ├── beatboard.py         # C4 freeform beat canvas + filter + jump

@@ -1,6 +1,6 @@
 # FountainPad — User Guide
 
-**Last updated:** 2026-07-26 (autocomplete + P1 binder + C4 beat board + N4 outline + C7 packs)  
+**Last updated:** 2026-07-26 (craft pack: autocomplete v2, find, pages, title page, dual dialogue)  
 **Audience:** someone using the app (not building it)  
 **Honesty rule:** features marked **Partial** work today but are not finished products. If something feels unclear, that is a real UX signal — this guide should explain what to expect.
 
@@ -61,6 +61,10 @@ Standard text editing against the **source editor** (not the preview):
 | Undo / Redo | Editor history |
 | Cut / Copy / Paste | Clipboard |
 | Select All | Select all source text |
+| **Find…** / **Find Next** | Search in the source editor (Ctrl/Cmd+F). Case-sensitive optional. Wraps around. |
+| **Find Character Dialogue…** | Pick a character; list their dialogue blocks; double-click to jump (Ctrl/Cmd+Shift+F). |
+| **Title Page…** | Form for Fountain title-page keys (`Title:`, `Author:`, …). Writes/replaces the block at the top of the script (Ctrl/Cmd+Shift+T). |
+| **Mark Dual Dialogue (^)** | Appends Fountain’s dual-dialogue caret on the current character cue so the next cue can sit side-by-side in preview (Ctrl/Cmd+Shift+D). |
 | **Generate Empty Cards from Scenes…** | **Partial (P3).** Optional empty card stubs under scenes with no card yet. Confirm first. Same as **From scenes** on the Index Cards panel. |
 | **Apply Card to Script** | **Partial.** Pushes the **active card version** into the screenplay: scene heading + **leading action only**. **Dialogue is never changed.** Explicit action — not a silent compile. Ctrl/Cmd+Shift+A. |
 | **Ensure Card IDs** | Assign stable `id=cNNN` on markers that do not have one yet. |
@@ -105,19 +109,24 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
 
 ### Autocomplete
 
-**Status:** Available (v1 — document-driven)
+**Status:** Available (v2 — context-aware)
 
 While typing in the **source editor**:
 
 - **Ctrl/Cmd+Space** — force the completion popup
-- Popup also appears when you type scene prefixes (`INT.`, `EXT.`, …) or an all-caps character-like line
-- Suggestions include:
-  - common Fountain elements (`INT. `, `CUT TO:`, `(V.O.)`, …)
-  - **scene headings** and bare **locations** already in this script
-  - **character names** already used (plus `NAME (CONT'D)`)
-- Lists refresh a moment after you stop typing (debounced)
+- Popup also appears in useful contexts (scene prefixes, character cues, title keys, extensions, transitions)
+- Suggestions depend on **where you are**:
+  - **Scene line** — `INT.`/`EXT.` prefixes, existing headings, locations
+  - **Character line** — names already in the script, `(CONT'D)`, dual `NAME ^`
+  - **Title page** — standard keys (`Title:`, `Author:`, …)
+  - **Extensions / transitions** — `(V.O.)`, `CUT TO:`, etc.
+- Lists rebuild from the open document (debounced)
 
 Choose with Enter/Tab; Esc dismisses. Completions replace the active prefix on the current line.
+
+### Dual dialogue
+
+Fountain marks the **second** simultaneous speaker with a caret: put `^` after the character name (`BOB ^`). Preview shows dual blocks side-by-side. Use **Edit → Mark Dual Dialogue (^)** or type the caret yourself. The editor underlines the caret on character cues.
 
 ---
 
@@ -385,6 +394,12 @@ Same idea for `[[beat: Label]]` markers — export the list, edit in markdown if
 | Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z (platform) | Undo / Redo |
 | Ctrl/Cmd+X / C / V | Cut / Copy / Paste |
 | Ctrl/Cmd+A | Select All |
+| Ctrl/Cmd+F | Find |
+| Ctrl/Cmd+G (platform Find Next) | Find next |
+| Ctrl/Cmd+Shift+F | Find character dialogue |
+| Ctrl/Cmd+Shift+T | Title page builder |
+| Ctrl/Cmd+Shift+D | Mark dual dialogue (^) |
+| Ctrl/Cmd+Space | Autocomplete |
 | — | Generate empty cards from scenes (Edit / From scenes) |
 | Ctrl/Cmd+Shift+A | Apply selected card to script |
 | — | Ensure card ids (Edit menu) |
@@ -405,7 +420,9 @@ Same idea for `[[beat: Label]]` markers — export the list, edit in markdown if
 ## Status bar
 
 - **Scene:** nearest scene heading above the cursor  
-- **Counts:** characters and words in the whole document  
+- **Counts:** characters and words, plus a **rough** page estimate (`~N pp`) and duration (`~N min`)  
+  - Estimate skips title page, `#` sections, and card/beat chrome  
+  - Uses ~55 content lines per page and ~1 minute per page — guidance only, not production timing  
 
 ---
 

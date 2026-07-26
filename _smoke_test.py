@@ -161,6 +161,47 @@ def main() -> int:
     assert "About FountainPad" in help_menu_texts, help_menu_texts
     print("menus/help OK", titles, help_path.name)
 
+    # Craft pack 2026-07-26: find / title page / dual / pages / autocomplete v2
+    import fountain_tools as ft
+
+    craft = (
+        "Title: Craft\nAuthor: Test\n\n"
+        "INT. ROOM - DAY\n\n"
+        "ALICE\nHi.\n\n"
+        "BOB ^\nYo.\n\n"
+        "EXT. ROAD - NIGHT\n\n"
+        "ALICE\nBye.\n"
+    )
+    pages, minutes, _cl, words = ft.estimate_pages(craft)
+    assert pages >= 0 and words >= 3
+    assert ft.list_character_cues(craft) == ["ALICE", "BOB"]
+    assert len(ft.find_character_dialogue_blocks(craft, "ALICE")) == 2
+    assert "Title: " in ft.completion_suggestions(craft, "title")[0]
+    new_tp = ft.replace_title_page(craft, {"Title": "Renamed", "Author": "Test"})
+    assert new_tp.startswith("Title: Renamed")
+    assert hasattr(w, "act_find") and hasattr(w, "act_title_page")
+    assert hasattr(w, "act_dual_caret") and hasattr(w, "act_find_character")
+    w.editor.setPlainText(craft)
+    w._update_status()
+    assert "pp" in w._count_label.text() and "min" in w._count_label.text()
+    # Dual caret action
+    c = w.editor.textCursor()
+    idx = w.editor.toPlainText().find("ALICE")
+    c.setPosition(idx)
+    w.editor.setTextCursor(c)
+    w.insert_dual_dialogue_caret()
+    line = w.editor.textCursor().block().text()
+    assert line.strip().endswith("^"), line
+    print("craft pack OK", w._count_label.text())
+    # Restore sample for later navigator/card checks that expect DEFAULT_FOUNTAIN
+    w.editor.setPlainText(DEFAULT_FOUNTAIN)
+    w._dirty = False
+    w._refresh_navigator()
+    w._refresh_card_navigator()
+    w._refresh_beat_board()
+    w._sync_previews(immediate=True)
+    w._update_status()
+
     # Scene / outline navigator (N4: sections + scenes)
     scenes = w.editor.list_scene_headings()
     assert len(scenes) >= 2, scenes

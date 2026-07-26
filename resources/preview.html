@@ -116,12 +116,21 @@
     #script .dual-dialogue {
       display: flex;
       gap: 1.5rem;
-      width: 90%;
-      margin: 1em auto;
+      width: 92%;
+      margin: 1.2em auto;
+      align-items: flex-start;
+      border-top: 1px solid color-mix(in srgb, var(--muted, #999) 35%, transparent);
+      border-bottom: 1px solid color-mix(in srgb, var(--muted, #999) 35%, transparent);
+      padding: 0.6em 0.25em;
     }
     #script .dual-dialogue .dialogue {
       width: 48%;
       margin: 0;
+      flex: 1 1 48%;
+    }
+    #script .dual-dialogue h4 {
+      width: 100%;
+      margin-top: 0;
     }
     #script hr {
       border: none;
