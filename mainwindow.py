@@ -82,6 +82,7 @@ APP_ORG = "FountainPad"
 APP_NAME = "FountainPad"
 
 # First-run / New-from-sample text only. File → Close uses an empty buffer.
+# Includes sections, cards, and beats so Outline / Index Cards / Beat Board demo live.
 DEFAULT_FOUNTAIN = """Title: UNTITLED SCREENPLAY
 Credit: written by
 Author: Your Name
@@ -90,6 +91,17 @@ Draft date:
 ==
 
 FADE IN:
+
+# Act One
+
+[[beat: Opening Image | x=24 | y=24]]
+A scarab on empty road — the world is watching.
+
+## Highway
+
+[[card: id=c001 | Goal | active=v1]]
+@v1
+Get across the desert before sundown.
 
 EXT. DESERT HIGHWAY - DAY
 
@@ -101,13 +113,83 @@ You ever get the feeling the dunes are watching?
 
 She kicks the sand. Wind answers.
 
+[[card: id=c002 | Conflict]]
+@v1
+The dunes feel hostile; Jules will not turn back.
+
 CUT TO:
+
+## Oasis
+
+[[beat: Catalyst | x=200 | y=24]]
+A stranger knows her name.
 
 INT. OASIS CAFE - DAY
 
-Ceiling fans chop the thick air.
+Ceiling fans chop the thick air. Jules slides into a booth.
 
-END OF SAMPLE
+MARCO
+(without looking up)
+You're late, Jules.
+
+JULES
+I don't know you.
+
+MARCO
+You will.
+
+[[card: id=c003 | Turn]]
+@v1
+Marco drops a sealed envelope. Jules must open it or walk.
+
+# Act Two
+
+[[beat: Break into Two | x=24 | y=140]]
+The envelope forces a choice — stay small or go under.
+
+## The Bay
+
+EXT. ARMOURED BAY - NIGHT
+
+Floodlights carve white cones through the dust. A steel door rolls open.
+
+JULES
+(under her breath)
+Okay. We're doing this.
+
+She steps inside. The door seals behind her.
+
+[[card: id=c004 | Goal]]
+@v1
+Secure the package and get out before the next shift.
+
+[[beat: Midpoint | x=200 | y=140]]
+The package is not what she was told.
+
+## Safe House
+
+INT. SAFE HOUSE - NIGHT
+
+Maps on the wall. A single lamp. Jules empties the envelope onto the table.
+
+JULES
+This isn't money.
+
+MARCO (V.O.)
+It never was.
+
+She stares at the photograph. Wind rattles the window.
+
+[[card: id=c005 | Conflict]]
+@v1
+The photo shows someone she thought was dead.
+
+[[beat: Climax Setup | x=376 | y=140]]
+Dawn is coming — and so is the bay's second crew.
+
+FADE OUT.
+
+# End of sample
 """
 
 # Fallback widths when a splitter pane was collapsed to 0 and we show it again.

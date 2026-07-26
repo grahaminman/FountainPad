@@ -42,7 +42,16 @@ def main() -> int:
         if pat.match(t.strip()):
             found_scenes.append(t.strip())
     assert found_scenes, "expected scene headings in sample"
+    assert len(found_scenes) >= 4, found_scenes  # sample has 4 scenes
     print("scenes_found", found_scenes)
+    # Sample packs demo content for cards / beats / outline
+    sample_text = ed.toPlainText()
+    assert "[[card: id=c001" in sample_text and "[[beat: Opening Image" in sample_text
+    assert "# Act One" in sample_text and "EXT. ARMOURED BAY" in sample_text
+    assert len(ed.list_beats()) >= 4
+    assert len(ed.list_card_infos()) >= 4
+    outline = ed.list_outline_nodes()
+    assert any(k == "section" and "Act" in t for k, _b, _l, t in outline)
 
     # Cursor starts at beginning (title page) — no scene yet is OK
     c = ed.textCursor()
@@ -64,7 +73,8 @@ def main() -> int:
     c.movePosition(QTextCursor.End)
     ed.setTextCursor(c)
     scene3 = ed.current_scene_heading()
-    assert scene3.startswith("INT. OASIS"), scene3
+    # Sample ends in Act Two safe house
+    assert scene3.startswith("INT. SAFE HOUSE"), scene3
     print("at end:", scene3)
 
     ed.apply_theme(True)

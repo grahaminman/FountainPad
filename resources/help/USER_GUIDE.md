@@ -40,7 +40,7 @@ There is also an optional **floating preview window** (detached).
 
 | Command | What it does |
 |---|---|
-| **New** | Starts a new screenplay. First launch / New may show a short sample; after **Close**, New is an empty untitled buffer (you will be asked to save if the current file is dirty). |
+| **New** | Starts a new screenplay. First launch shows a short **sample** (four scenes, sections, cards, and beats) so Outline / Index Cards / Beat Board have something to show; after **Close**, New is an empty untitled buffer (you will be asked to save if the current file is dirty). |
 | **Open…** | Open a `.fountain` (or text) file. |
 | **Open Project Folder…** | **P1.** Choose a folder. Seeds missing `script.fountain`, `canon.md`, `beats.md`, and `cards.md`, opens the script, and shows the **Project binder**. Click binder rows to edit the script or side notes. Pack buttons on the binder export/import cards and beats. |
 | **Close** | Closes the current buffer (save prompt if needed). Does **not** quit the app. Leaves an empty untitled document. |
