@@ -71,6 +71,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 - [x] C7 markdown card/beat pack export+import (2026-07-26)
 - [x] N4 section/`#` outline tree (2026-07-26)
 - [x] C4 freeform beat board (2026-07-26)
+- [x] P1 project binder (2026-07-26)
 - [ ] Keep USER_GUIDE honest as cards/beats/project mature
 
 ### A. Distribution & trust (product)
@@ -126,8 +127,8 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 
 | ID | Feature | Notes | Source |
 |---|---|---|---|
-| P1 | **Project folder mode** | Open directory: script + `beats/` + `cards/` + `CANON.md` | **Partial 2026-07-23** — File → Open Project Folder… seeds `canon.md` / `beats.md` / `cards.md` + loads `script.fountain` if present (flat files, not full binder UI) |
-| P2 | Multi-tab or split: script \| canon \| beats | | Our OS |
+| P1 | **Project folder mode** | Open directory: script + beats/cards/canon md | **DONE 2026-07-26** — binder panel; seeds `script.fountain` + `canon.md`/`beats.md`/`cards.md`; click to edit script or side notes; pack buttons; pack paths default to project root |
+| P2 | Multi-tab or split: script \| canon \| beats | Simultaneous tabs | Partial via P1 single-doc switch; true multi-tab later |
 | P3 | Generate cards from scene headings | Empty summaries for fill-in | **DONE 2026-07-24** — Edit menu + Index Cards “From scenes”; empty `[[card: Note]]` under scenes with no card; confirm; skips scenes that already have cards; notes-not-instructions framing |
 | P4 | Generate scene skeleton from card | Insert Fountain stub under cursor | **Partial 2026-07-24** — Apply Card to Script promotes draft slug from card body (first cut); richer skeleton later |
 | P5 | Sequence markers | e.g. sections `## SEQ 01` with progress | Our seq machine |
@@ -199,7 +200,7 @@ Sources sampled 2026-07-21 (non-exhaustive): Final Draft KB/blog (Beat Board, In
 - C1 index cards list + jump ✅ (2026-07-23)  
 - C6 Goal/Conflict/Turn template buttons ✅ partial  
 - C4 freeform beat board ✅ (2026-07-26)  
-- P1 project folder seed files ✅ partial  
+- P1 project binder ✅ (2026-07-26)  
 - C7 full markdown card-pack exchange ✅ (2026-07-26)  
 - P3 empty cards from scenes ✅ · P4 Apply card→script ✅ partial  
 - N4 section outline ✅ (2026-07-26)  

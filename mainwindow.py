@@ -61,7 +61,9 @@ from PySide6.QtWidgets import (
     QLabel,
     QMainWindow,
     QMessageBox,
+    QPlainTextEdit,
     QSplitter,
+    QStackedWidget,
     QStatusBar,
     QTextBrowser,
     QToolBar,
@@ -72,6 +74,8 @@ from editor import FountainEditor
 from navigator import SceneNavigator
 from cardnavigator import CardNavigator
 from beatboard import BeatBoard
+from projectbinder import ProjectBinder
+import project as project_mod
 from preview import FountainPreview, PreviewWindow
 
 APP_ORG = "FountainPad"
@@ -122,12 +126,16 @@ class MainWindow(QMainWindow):
         self.resize(1280, 840)
 
         self._path: Optional[Path] = None
+        self._project: Optional[project_mod.ProjectInfo] = None
+        self._doc_kind: str = "fountain"  # fountain | markdown
+        self._side_path: Optional[Path] = None
         self._dirty = False
         self._dark = False
         self._split_visible = True
         self._nav_visible = True
         self._cards_visible = True
         self._beats_visible = True
+        self._binder_visible = False
         self._detached: Optional[PreviewWindow] = None
         self._pdf_busy = False
         # Remember non-zero splitter sizes so hide→show does not leave a 0-width pane.
@@ -136,9 +144,10 @@ class MainWindow(QMainWindow):
             _DEFAULT_SPLIT_PREVIEW_WIDTH,
         ]
         self._saved_main_splitter_sizes: list[int] = [
+            200,
             _DEFAULT_NAV_WIDTH,
             _DEFAULT_CARD_NAV_WIDTH,
-            1040,
+            900,
             _DEFAULT_NAV_WIDTH,
         ]
 
@@ -147,7 +156,20 @@ class MainWindow(QMainWindow):
         self.navigator = SceneNavigator()
         self.card_navigator = CardNavigator()
         self.beat_board = BeatBoard()
+        self.project_binder = ProjectBinder()
+        self.side_editor = QPlainTextEdit()
+        self.side_editor.setPlaceholderText("Project notes (markdown)…")
+        mono = QFont("Menlo")
+        if not mono.exactMatch():
+            mono = QFont("Consolas")
+        if not mono.exactMatch():
+            mono = QFont("Courier New")
+        mono.setStyleHint(QFont.Monospace)
+        mono.setPointSize(12)
+        self.side_editor.setFont(mono)
 
+        # Centre stack: fountain workspace OR side markdown doc
+        self._centre_stack = QStackedWidget()
         # Inner: editor | embedded preview
         self._editor_preview = QSplitter(Qt.Horizontal)
         self._editor_preview.addWidget(self.editor)
@@ -156,21 +178,35 @@ class MainWindow(QMainWindow):
         self._editor_preview.setStretchFactor(1, 1)
         self._editor_preview.setChildrenCollapsible(False)
         self._editor_preview.setSizes(self._saved_editor_preview_sizes)
+        self._centre_stack.addWidget(self._editor_preview)  # index 0 = fountain
+        self._centre_stack.addWidget(self.side_editor)  # index 1 = markdown notes
 
-        # Outer: navigator | card_navigator | (editor+preview) | beat_board
+        # Outer: binder | outline | cards | centre | beat board
         self.splitter = QSplitter(Qt.Horizontal)
+        self.splitter.addWidget(self.project_binder)
         self.splitter.addWidget(self.navigator)
         self.splitter.addWidget(self.card_navigator)
-        self.splitter.addWidget(self._editor_preview)
+        self.splitter.addWidget(self._centre_stack)
         self.splitter.addWidget(self.beat_board)
         self.splitter.setStretchFactor(0, 0)
         self.splitter.setStretchFactor(1, 0)
-        self.splitter.setStretchFactor(2, 1)
-        self.splitter.setStretchFactor(3, 0)
+        self.splitter.setStretchFactor(2, 0)
+        self.splitter.setStretchFactor(3, 1)
+        self.splitter.setStretchFactor(4, 0)
         self.splitter.setChildrenCollapsible(False)
-        self.splitter.setSizes([_DEFAULT_NAV_WIDTH, _DEFAULT_NAV_WIDTH, 1040, _DEFAULT_NAV_WIDTH])
-        self._saved_main_splitter_sizes = [_DEFAULT_NAV_WIDTH, _DEFAULT_NAV_WIDTH, 1040, _DEFAULT_NAV_WIDTH]
+        self.splitter.setSizes(
+            [200, _DEFAULT_NAV_WIDTH, _DEFAULT_NAV_WIDTH, 900, _DEFAULT_NAV_WIDTH]
+        )
+        self._saved_main_splitter_sizes = [
+            200,
+            _DEFAULT_NAV_WIDTH,
+            _DEFAULT_NAV_WIDTH,
+            900,
+            _DEFAULT_NAV_WIDTH,
+        ]
         self.setCentralWidget(self.splitter)
+        # Binder hidden until a project is opened
+        self.project_binder.setVisible(False)
 
         self._scene_label = QLabel("Scene: —")
         self._count_label = QLabel("0 chars · 0 words")
@@ -203,6 +239,13 @@ class MainWindow(QMainWindow):
         self.beat_board.beatMoved.connect(self._on_beat_moved)
         self.beat_board.layoutRequested.connect(self._layout_beats_grid)
         self.beat_board.newBeatRequested.connect(self._insert_beat_template)
+        self.project_binder.fileActivated.connect(self._on_project_file_activated)
+        self.project_binder.refreshRequested.connect(self._refresh_project_binder)
+        self.project_binder.exportCardsRequested.connect(self.export_card_pack)
+        self.project_binder.importCardsRequested.connect(self.import_card_pack)
+        self.project_binder.exportBeatsRequested.connect(self.export_beat_pack)
+        self.project_binder.importBeatsRequested.connect(self.import_beat_pack)
+        self.side_editor.textChanged.connect(self._on_side_editor_changed)
 
         # Debounce navigator rebuild while typing (cheap, but no need every keystroke).
         self._nav_refresh = QTimer(self)
@@ -296,6 +339,14 @@ class MainWindow(QMainWindow):
         self.act_open_project.setStatusTip("Open a project folder (Screenwriting OS structure)")
         self.act_open_project.triggered.connect(self.open_project)
 
+        self.act_toggle_binder = QAction("Show Project &Binder", self)
+        self.act_toggle_binder.setCheckable(True)
+        self.act_toggle_binder.setChecked(False)
+        self.act_toggle_binder.setShortcut(QKeySequence("Ctrl+Shift+P"))
+        self.act_toggle_binder.setStatusTip(
+            "Show or hide the project binder (open a project folder first)"
+        )
+        self.act_toggle_binder.triggered.connect(self.toggle_project_binder)
         self.act_toggle_nav = QAction("Show &Scene Navigator", self)
         self.act_toggle_nav.setCheckable(True)
         self.act_toggle_nav.setChecked(True)
@@ -470,6 +521,7 @@ class MainWindow(QMainWindow):
         self.menu_edit.addAction(self.act_card_down)
 
         self.menu_view = self.menuBar().addMenu("&View")
+        self.menu_view.addAction(self.act_toggle_binder)
         self.menu_view.addAction(self.act_toggle_nav)
         self.menu_view.addAction(self.act_toggle_cards)
         self.menu_view.addAction(self.act_toggle_beats)
@@ -498,6 +550,7 @@ class MainWindow(QMainWindow):
         tb.addAction(self.act_save)
         tb.addAction(self.act_export_pdf)
         tb.addSeparator()
+        tb.addAction(self.act_toggle_binder)
         tb.addAction(self.act_toggle_nav)
         tb.addAction(self.act_toggle_cards)
         tb.addAction(self.act_toggle_beats)
@@ -535,6 +588,7 @@ class MainWindow(QMainWindow):
         self.editor.blockSignals(False)
         self._path = None
         self._dirty = False
+        self._clear_project()
         self._sync_previews(immediate=True)
         self._refresh_navigator()
         self._update_title()
@@ -554,6 +608,7 @@ class MainWindow(QMainWindow):
         self.editor.blockSignals(False)
         self._path = None
         self._dirty = False
+        self._clear_project()
         self._sync_previews(immediate=True)
         self._refresh_navigator()
         self._update_title()
@@ -561,58 +616,172 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Closed", 2000)
 
     def open_project(self) -> None:
-        """Open a project folder and auto-load script.fountain if it exists.
+        """P1: open a project folder with binder + core files.
 
-        Auto-creates missing Screenwriting OS files:
+        Seeds missing core files:
+          - script.fountain
           - canon.md
           - beats.md
           - cards.md
+        Loads script.fountain into the Fountain editor and shows the binder.
         """
         if not self._maybe_save():
             return
         path = QFileDialog.getExistingDirectory(
             self,
             "Open Project Folder",
-            str(self._path.parent if self._path else Path.home()),
+            str(
+                self._project.root
+                if self._project is not None
+                else (self._path.parent if self._path else Path.home())
+            ),
         )
         if not path:
             return
-        project_dir = Path(path)
+        self._load_project_folder(Path(path))
 
-        # Auto-create missing Screenwriting OS files.
-        missing_files = []
-        for name, template in [
-            ("canon.md", "# Canon\n\nStory world, rules, lore."),
-            ("beats.md", "# Beats\n\nMajor plot points."),
-            (
-                "cards.md",
-                "# Index Cards\n\n"
-                "<!-- Seed only. Use File → Export/Import Card Pack for live sync. -->\n\n",
-            ),
-        ]:
-            file = project_dir / name
-            if not file.exists():
-                try:
-                    file.write_text(template, encoding="utf-8")
-                    missing_files.append(name)
-                except OSError as exc:
-                    QMessageBox.warning(
-                        self,
-                        "File creation failed",
-                        f"Could not create {name}:\n{exc}",
-                    )
+    def _load_project_folder(self, project_dir: Path) -> None:
+        """Seed, bind, and open the project script (used by open_project + tests)."""
+        info = project_mod.open_project_folder(project_dir, create_script=True)
+        self._project = info
+        self.project_binder.set_project(info)
+        self._binder_visible = True
+        self.project_binder.setVisible(True)
+        self.act_toggle_binder.setChecked(True)
+        self._ensure_main_splitter_sizes()
 
-        fountain_file = project_dir / "script.fountain"
-        if fountain_file.exists():
-            self._open_fountain_file(fountain_file)
+        script = info.script_path()
+        if script.is_file():
+            self._open_path_in_workspace(script, prefer_fountain=True)
         else:
-            msg = f"Project folder opened: {project_dir.name}"
-            if missing_files:
-                msg += f"\nAuto-created: {', '.join(missing_files)}"
-            QMessageBox.information(self, "Project Opened", msg)
+            self._show_fountain_workspace()
+            self.editor.blockSignals(True)
+            self.editor.setPlainText("")
+            self.editor.blockSignals(False)
+            self._path = script
+            self._doc_kind = "fountain"
+            self._side_path = None
+            self._dirty = False
+            self._sync_previews(immediate=True)
+            self._refresh_navigator()
+            self._refresh_card_navigator()
+            self._refresh_beat_board()
+
+        self.project_binder.set_active_path(self._path)
+        self._update_title()
+        created = ", ".join(info.created) if info.created else "none"
+        self.statusBar().showMessage(
+            f"Project “{info.name}” · seeded: {created}", 6000
+        )
+
+    def _refresh_project_binder(self) -> None:
+        if self._project is None:
+            return
+        root = self._project.root
+        self._project = project_mod.ProjectInfo(
+            root=root,
+            files=project_mod.discover_project_files(root),
+            created=[],
+        )
+        self.project_binder.set_project(self._project)
+        self.project_binder.set_active_path(self._path)
+
+    def _clear_project(self) -> None:
+        self._project = None
+        self.project_binder.set_project(None)
+        self.project_binder.setVisible(False)
+        self.act_toggle_binder.setChecked(False)
+        self._binder_visible = False
+        self._show_fountain_workspace()
+        self._doc_kind = "fountain"
+        self._side_path = None
+
+    def _show_fountain_workspace(self) -> None:
+        self._centre_stack.setCurrentIndex(0)
+
+    def _show_side_workspace(self) -> None:
+        self._centre_stack.setCurrentIndex(1)
+
+    def _on_side_editor_changed(self) -> None:
+        if self._doc_kind != "markdown":
+            return
+        self._dirty = True
+        self._update_title()
+
+    def _on_project_file_activated(self, path_str: str) -> None:
+        path = Path(path_str)
+        if not path.exists():
+            QMessageBox.warning(self, "Missing file", f"Not found:\n{path}")
+            self._refresh_project_binder()
+            return
+        if not self._maybe_save():
+            return
+        self._open_path_in_workspace(path)
+
+    def _open_path_in_workspace(
+        self, path: Path, *, prefer_fountain: bool = False
+    ) -> None:
+        """Open a project file as Fountain script or side markdown notes."""
+        path = Path(path)
+        is_fountain = project_mod.is_fountain_path(path) or (
+            prefer_fountain and path.name.lower() == project_mod.SCRIPT_NAME
+        )
+        if is_fountain or (
+            path.suffix.lower() == "" and path.name.endswith(".fountain")
+        ):
+            self._open_fountain_file(path)
+            self._doc_kind = "fountain"
+            self._side_path = None
+            self._show_fountain_workspace()
+        elif project_mod.is_markdown_path(path):
+            try:
+                text_body = path.read_text(encoding="utf-8")
+            except OSError as exc:
+                QMessageBox.critical(self, "Open failed", str(exc))
+                return
+            self.side_editor.blockSignals(True)
+            self.side_editor.setPlainText(text_body)
+            self.side_editor.blockSignals(False)
+            self._path = path
+            self._side_path = path
+            self._doc_kind = "markdown"
+            self._dirty = False
+            self._show_side_workspace()
+            self._update_title()
+            self._update_status()
+        else:
+            # Unknown: try fountain
+            self._open_fountain_file(path)
+            self._doc_kind = "fountain"
+            self._show_fountain_workspace()
+        if self._project is not None:
+            self.project_binder.set_active_path(self._path)
+
+    def toggle_project_binder(self, checked: Optional[bool] = None) -> None:
+        if checked is None:
+            checked = self.act_toggle_binder.isChecked()
+        else:
+            self.act_toggle_binder.setChecked(checked)
+        self._binder_visible = bool(checked)
+        if self._project is None:
+            self.project_binder.setVisible(False)
+            self.act_toggle_binder.setChecked(False)
+            self._binder_visible = False
+            self.statusBar().showMessage(
+                "Open a project folder to use the binder", 3000
+            )
+            return
+        if self._binder_visible:
+            self.project_binder.setVisible(True)
+            self._ensure_main_splitter_sizes()
+        else:
+            self._remember_main_splitter_sizes()
+            self.project_binder.setVisible(False)
 
     def _project_dir_for_packs(self) -> Path:
-        """Prefer the folder that holds the open .fountain; else home."""
+        """Prefer open project root, else folder of open file, else home."""
+        if self._project is not None:
+            return self._project.root
         if self._path is not None:
             return self._path.parent
         return Path.home()
@@ -843,11 +1012,22 @@ class MainWindow(QMainWindow):
         self.editor.setPlainText(text)
         self.editor.blockSignals(False)
         self._path = path
+        self._doc_kind = "fountain"
+        self._side_path = None
         self._dirty = False
+        self._show_fountain_workspace()
         self._sync_previews(immediate=True)
         self._refresh_navigator()
         self._refresh_card_navigator()
         self._refresh_beat_board()
+        if self._project is not None:
+            # Stay in project if the file lives under the project root
+            try:
+                path.resolve().relative_to(self._project.root.resolve())
+            except ValueError:
+                self._clear_project()
+            else:
+                self.project_binder.set_active_path(path)
         self._update_title()
         self._update_status()
 
@@ -870,6 +1050,19 @@ class MainWindow(QMainWindow):
         return self._write_to(self._path)
 
     def save_file_as(self) -> bool:
+        if self._doc_kind == "markdown":
+            path, _ = QFileDialog.getSaveFileName(
+                self,
+                "Save Markdown",
+                str(self._path or Path.home() / "notes.md"),
+                "Markdown (*.md);;Text (*.txt);;All files (*.*)",
+            )
+            if not path:
+                return False
+            p = Path(path)
+            if p.suffix == "":
+                p = p.with_suffix(".md")
+            return self._write_to(p)
         path, _ = QFileDialog.getSaveFileName(
             self,
             "Save Fountain Screenplay",
@@ -884,14 +1077,23 @@ class MainWindow(QMainWindow):
         return self._write_to(p)
 
     def _write_to(self, path: Path) -> bool:
+        if self._doc_kind == "markdown":
+            body = self.side_editor.toPlainText()
+        else:
+            body = self.editor.toPlainText()
         try:
-            path.write_text(self.editor.toPlainText(), encoding="utf-8")
+            path.write_text(body, encoding="utf-8")
         except OSError as exc:
             QMessageBox.critical(self, "Save failed", str(exc))
             return False
         self._path = path
+        if self._doc_kind == "markdown":
+            self._side_path = path
         self._dirty = False
         self._update_title()
+        if self._project is not None:
+            self._refresh_project_binder()
+            self.project_binder.set_active_path(self._path)
         self.statusBar().showMessage(f"Saved {path.name}", 3000)
         return True
 
@@ -1646,33 +1848,37 @@ class MainWindow(QMainWindow):
 
     def _remember_main_splitter_sizes(self) -> None:
         sizes = self.splitter.sizes()
-        if len(sizes) >= 3 and sizes[0] > 40 and sizes[1] > 40:
+        # P1 layout: binder | outline | cards | centre | beats (5 panes)
+        if len(sizes) >= 5 and any(s > 40 for s in sizes):
             self._saved_main_splitter_sizes = list(sizes)
 
     def _ensure_main_splitter_sizes(self) -> None:
-        """Restore sensible widths for visible side panes (nav/cards/beats)."""
+        """Restore sensible widths for visible side panes (binder/nav/cards/beats)."""
         default = [
+            200,
             _DEFAULT_NAV_WIDTH,
             _DEFAULT_CARD_NAV_WIDTH,
-            1040,
+            900,
             _DEFAULT_NAV_WIDTH,
         ]
         sizes = list(self.splitter.sizes())
-        if len(sizes) < 4:
+        if len(sizes) < 5:
             sizes = (
                 list(self._saved_main_splitter_sizes)
-                if len(self._saved_main_splitter_sizes) >= 4
+                if len(self._saved_main_splitter_sizes) >= 5
                 else default
             )
-        # Index: 0 nav, 1 cards, 2 editor+preview, 3 beats
-        if self._nav_visible and sizes[0] < 40:
+        # Index: 0 binder, 1 outline, 2 cards, 3 centre, 4 beats
+        if self._binder_visible and self._project is not None and sizes[0] < 40:
             sizes[0] = default[0]
-        if self._cards_visible and sizes[1] < 40:
+        if self._nav_visible and sizes[1] < 40:
             sizes[1] = default[1]
-        if sizes[2] < 120:
+        if self._cards_visible and sizes[2] < 40:
             sizes[2] = default[2]
-        if self._beats_visible and sizes[3] < 40:
+        if sizes[3] < 120:
             sizes[3] = default[3]
+        if self._beats_visible and sizes[4] < 40:
+            sizes[4] = default[4]
         self.splitter.setSizes(sizes)
         self._saved_main_splitter_sizes = sizes
 
@@ -1698,6 +1904,16 @@ class MainWindow(QMainWindow):
         self.navigator.apply_theme(self._dark)
         self.card_navigator.apply_theme(self._dark)
         self.beat_board.apply_theme(self._dark)
+        self.project_binder.apply_theme(self._dark)
+        # Side markdown editor chrome
+        if self._dark:
+            self.side_editor.setStyleSheet(
+                "QPlainTextEdit { background:#1e1e1e; color:#d4d4d4; selection-background-color:#264f78; border:none; }"
+            )
+        else:
+            self.side_editor.setStyleSheet(
+                "QPlainTextEdit { background:#fafafa; color:#1a1a1a; selection-background-color:#cde8ff; border:none; }"
+            )
         self.preview.set_theme(theme)
         if self._detached is not None:
             self._detached.preview.set_theme(theme)
@@ -1858,14 +2074,32 @@ class MainWindow(QMainWindow):
             )
 
     def _update_title(self) -> None:
-        name = self._path.name if self._path else "Untitled.fountain"
+        if self._path is not None:
+            name = self._path.name
+        elif self._doc_kind == "markdown":
+            name = "Untitled.md"
+        else:
+            name = "Untitled.fountain"
         dirty = " •" if self._dirty else ""
-        self.setWindowTitle(f"{name}{dirty} — FountainPad")
+        if self._project is not None:
+            self.setWindowTitle(
+                f"{self._project.name} · {name}{dirty} — FountainPad"
+            )
+        else:
+            self.setWindowTitle(f"{name}{dirty} — FountainPad")
 
     def _update_status(self) -> None:
-        text = self.editor.toPlainText()
-        chars = len(text)
-        words = len(text.split()) if text.strip() else 0
+        if self._doc_kind == "markdown":
+            body = self.side_editor.toPlainText()
+            chars = len(body)
+            words = len(body.split()) if body.strip() else 0
+            label = self._path.name if self._path else "notes"
+            self._scene_label.setText(f"Notes: {label}")
+            self._count_label.setText(f"{chars} chars · {words} words")
+            return
+        body = self.editor.toPlainText()
+        chars = len(body)
+        words = len(body.split()) if body.strip() else 0
         scene = self.editor.current_scene_heading() or "—"
         if len(scene) > 60:
             scene = scene[:57] + "…"

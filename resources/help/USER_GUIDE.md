@@ -1,6 +1,6 @@
 # FountainPad — User Guide
 
-**Last updated:** 2026-07-26 (C4 freeform beat board + N4 outline + C7 packs)  
+**Last updated:** 2026-07-26 (P1 project binder + C4 beat board + N4 outline + C7 packs)  
 **Audience:** someone using the app (not building it)  
 **Honesty rule:** features marked **Partial** work today but are not finished products. If something feels unclear, that is a real UX signal — this guide should explain what to expect.
 
@@ -42,7 +42,7 @@ There is also an optional **floating preview window** (detached).
 |---|---|
 | **New** | Starts a new screenplay. First launch / New may show a short sample; after **Close**, New is an empty untitled buffer (you will be asked to save if the current file is dirty). |
 | **Open…** | Open a `.fountain` (or text) file. |
-| **Open Project Folder…** | **Partial.** Choose a folder. FountainPad creates missing `canon.md`, `beats.md`, and `cards.md` starter files, and opens `script.fountain` if that file exists. This is *not* a full multi-document binder yet. Use **Export/Import Card Pack** (and Beat Pack) to sync those markdown files with the script. |
+| **Open Project Folder…** | **P1.** Choose a folder. Seeds missing `script.fountain`, `canon.md`, `beats.md`, and `cards.md`, opens the script, and shows the **Project binder**. Click binder rows to edit the script or side notes. Pack buttons on the binder export/import cards and beats. |
 | **Close** | Closes the current buffer (save prompt if needed). Does **not** quit the app. Leaves an empty untitled document. |
 | **Save** / **Save As…** | Save the current editor text as UTF-8 `.fountain`. |
 | **Export PDF…** | Exports the **formatted preview** as a PDF (Letter). Forces a light print look for readability. Fountain `[[notes]]` are hidden in the PDF via print CSS. |
@@ -287,25 +287,38 @@ Same idea for `[[beat: Label]]` markers — export the list, edit in markdown if
 
 ---
 
-## Project folder (Partial)
+## Project folder & binder (P1)
 
-**Status:** Partial
+**Status:** Available
 
-**File → Open Project Folder…**
+**File → Open Project Folder…** (Ctrl/Cmd+Shift+O)
 
 1. Pick a folder.  
-2. If missing, FountainPad creates:
+2. FountainPad seeds any missing core files:
 
-   - `canon.md` — story world / rules notes  
-   - `beats.md` — beat notes (seed; use Export/Import Beat Pack for live content)  
-   - `cards.md` — card notes (seed; use Export/Import Card Pack for live content)  
-   - and opens `script.fountain` **if it already exists**
+   - `script.fountain` — the draft (source of truth for pages)  
+   - `canon.md` — story world / rules / constraints (edit in-app)  
+   - `beats.md` — beat pack file (sync with **Export/Import Beat Pack**)  
+   - `cards.md` — card pack file (sync with **Export/Import Card Pack**)  
 
-3. If there is no `script.fountain`, you get a message that the folder was opened / seeded — you still work in the editor as a normal Fountain file until you create/open one.
+3. Opens `script.fountain` and shows the **Project** binder on the left.  
+4. **View → Show Project Binder** toggles the binder (only useful with a project open).
 
-**Not yet:** multi-tab binder, docked editors for canon/beats/cards, or auto-watch sync on every keystroke.
+### Binder
 
-**How to use it now:** folder convention for a screenwriting project; keep the draft in `script.fountain` and sync packs on purpose via the File menu.
+- Click **Script** to edit the Fountain draft (outline, cards, beats, preview as usual).  
+- Click **Canon**, **Beats pack**, **Cards pack**, or other `.md` files in the folder to edit them in a side notes pane.  
+- **Save** writes the active document (script or notes).  
+- Binder buttons: **↓/↑ Cards** and **↓/↑ Beats** run the same pack export/import as the File menu, defaulting into this folder.  
+- **↻** rescans the folder for new `.md` / `.fountain` files.
+
+### What is *not* finished
+
+- No multi-tab simultaneous editors (one active doc at a time).  
+- No auto-watch sync of packs on every keystroke (explicit export/import on purpose).  
+- Canon is notes only — not auto-merged into the script.
+
+**How to use it:** keep one folder per project; draft in `script.fountain`; keep canon current; push/pull card and beat packs when you want the markdown files updated.
 
 ---
 

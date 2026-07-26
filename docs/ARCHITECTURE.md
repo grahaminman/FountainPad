@@ -21,12 +21,14 @@ Traditional order: **File · Edit · View · Help**.
 | File | Role |
 |---|---|
 | `main.py` | Entry; set OpenGL-share attr → `QApplication` → `MainWindow` |
-| `mainwindow.py` | Shell: menus, splitters, file ops, preview modes, PDF, project folder, C7 pack export/import, settings |
+| `mainwindow.py` | Shell: menus, splitters, file ops, preview modes, PDF, P1 project binder, C7 pack export/import, settings |
 | `editor.py` | `FountainEditor` + `FountainHighlighter` + scene / `list_cards` / `list_beats` helpers |
 | `cards.py` | Card parse/versions/apply/reorder + C7 markdown pack serialise/merge |
 | `navigator.py` | N4 outline tree (`#` sections + scenes) + filter + jump signal |
 | `cardnavigator.py` | Index cards list + editable detail + versions + reorder |
 | `beatboard.py` | C4 freeform beat canvas (`[[beat: | x= | y=]]`) + filter + jump |
+| `project.py` | P1 project folder model, seeds, discover files |
+| `projectbinder.py` | P1 binder list + pack shortcut buttons |
 | `preview.py` | `FountainPreview` (WebEngine) + `PreviewWindow` + `print_to_pdf` |
 | `resources/preview.html` | Offline HTML shell; JS API `setTheme` / `renderFountain` |
 | `resources/fountain.js` | Matt Daly parser (MIT) — treat as vendor |

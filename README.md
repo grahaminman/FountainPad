@@ -13,7 +13,7 @@ Write plain-text `.fountain` on the left, see a properly formatted screenplay pr
 - **Outline navigator (N4)** — Fountain `#` / `##` sections + `INT.`/`EXT.` scenes in a tree; filter; click to jump (View → Show Scene Navigator)
 - **Index cards** *(partial, cards-first)* — type in the panel (auto-saves); multi-line labels; versions; **Apply → script** (action only, never dialogue); **Scene ↑/↓** or **drag** a card to move its whole scene; stable ids; cards/`@vN` stripped from preview/PDF
 - **Beat board (C4)** — freeform canvas of `[[beat: …]]` stickies; drag to place (`x=`/`y=` on marker); Layout grid; filter + jump
-- **Project folder** *(partial)* — File → Open Project Folder… seeds `canon.md` / `beats.md` / `cards.md` and loads `script.fountain` when present
+- **Project binder (P1)** — File → Open Project Folder… seeds `script.fountain` + `canon.md` / `beats.md` / `cards.md`, binder list, side notes editor, pack buttons
 - **Card / beat packs (C7)** — File → Export/Import Card Pack (`cards.md`) and Beat Pack (`beats.md`); merge by card id / beat label; `.fountain` stays the screenplay source of truth
 - **Live split preview** (editor | formatted page) with 300ms debounce — show/hide independently
 - **Detach / reattach preview** — floating window plus in-window split; Reattach restores split
@@ -142,8 +142,10 @@ FountainPad/
 ├── navigator.py         # Scene navigator list + filter
 ├── cardnavigator.py     # Index cards list + Goal/Conflict/Turn templates
 ├── beatboard.py         # C4 freeform beat canvas + filter + jump
+├── project.py           # P1 project folder model + seeds
+├── projectbinder.py     # P1 binder panel
 ├── preview.py           # QWebEngineView + fountain.js bridge + PDF export
-├── mainwindow.py        # Menus, splitters, files, project folder, theme
+├── mainwindow.py        # Menus, splitters, files, project binder, theme
 ├── _smoke_test.py       # Headless offscreen regression checks
 ├── docs/                # Distribution + upgrade backlog (planning)
 ├── resources/

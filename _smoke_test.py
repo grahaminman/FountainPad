@@ -468,38 +468,57 @@ def main() -> int:
     assert w.card_navigator._list.dragDropMode() == QAbstractItemView.InternalMove
     print("Phase C2 drag-path reorder OK", msg_d)
 
-    # Project folder seeds
+    # P1 project folder + binder
+    import project as project_mod
+
     with tempfile.TemporaryDirectory() as td:
         project = Path(td) / "demo_project"
         project.mkdir()
-        # Bypass dialog: exercise seed + open path pieces
-        for name, template in [
-            ("canon.md", "# Canon\n\nStory world, rules, lore."),
-            ("beats.md", "# Beats\n\nMajor plot points."),
-            ("cards.md", "# Index Cards\n\n[[card: Goal]]\n"),
-        ]:
-            (project / name).write_text(template, encoding="utf-8")
+        # Pre-seed script only; binder should create missing md files
         script = project / "script.fountain"
         script.write_text("INT. SEED - DAY\n\nHello.\n", encoding="utf-8")
         w._dirty = False
-        w._open_fountain_file(script)
-        assert w._path == script
+        w._load_project_folder(project)
+        assert w._project is not None
+        assert w._project.root.resolve() == project.resolve()
+        assert w.project_binder.isVisible()
+        assert w._path.resolve() == script.resolve()
         assert "SEED" in w.editor.toPlainText()
-        # Missing-file seed behaviour
+        assert (project / "canon.md").is_file()
+        assert (project / "beats.md").is_file()
+        assert (project / "cards.md").is_file()
+        # Open canon in side editor
+        w._dirty = False
+        w._on_project_file_activated(str(project / "canon.md"))
+        assert w._doc_kind == "markdown"
+        assert w._centre_stack.currentIndex() == 1
+        assert "Canon" in w.side_editor.toPlainText() or "canon" in w.side_editor.toPlainText().lower()
+        # Edit + save side doc
+        w.side_editor.setPlainText("# Canon\n\nP1 test note.\n")
+        assert w._dirty
+        assert w.save_file() is True
+        assert "P1 test note" in (project / "canon.md").read_text(encoding="utf-8")
+        # Back to script
+        w._on_project_file_activated(str(script))
+        assert w._doc_kind == "fountain"
+        assert w._centre_stack.currentIndex() == 0
+        assert "SEED" in w.editor.toPlainText()
+        # Pack default dir is project root
+        assert w._project_dir_for_packs().resolve() == project.resolve()
+        # Empty folder seeds script.fountain too
         empty = Path(td) / "empty_project"
         empty.mkdir()
-        for name, template in [
-            ("canon.md", "# Canon\n\nStory world, rules, lore."),
-            ("beats.md", "# Beats\n\nMajor plot points."),
-            ("cards.md", "# Index Cards\n\n[[card: Goal]]\n[[card: Conflict]]\n[[card: Turn]]"),
-        ]:
-            f = empty / name
-            if not f.exists():
-                f.write_text(template, encoding="utf-8")
-        assert (empty / "canon.md").exists()
-        assert (empty / "beats.md").exists()
-        assert (empty / "cards.md").exists()
-        print("project folder seeds OK", empty)
+        w._dirty = False
+        w._load_project_folder(empty)
+        assert (empty / "script.fountain").is_file()
+        assert (empty / "canon.md").is_file()
+        assert w._project is not None and w._project.name == "empty_project"
+        # Close clears project
+        w._dirty = False
+        w.close_file()
+        assert w._project is None
+        assert not w.project_binder.isVisible()
+        print("P1 project binder OK", project)
 
     # C7: markdown card/beat pack export + import (no file dialogs)
     import cards as cards_mod
