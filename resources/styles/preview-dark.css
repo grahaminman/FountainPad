@@ -19,8 +19,14 @@ body.theme-dark #script {
   display: none !important;
 }
 
+/* Outline sections (# Act One) are stripped in source; hide if any slip through */
+.section {
+  display: none !important;
+}
+
 @media print {
-  .note {
+  .note,
+  .section {
     display: none !important;
   }
 }

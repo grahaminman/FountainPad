@@ -1596,14 +1596,22 @@ def merge_beat_pack_into_text(
     return work, "Beat pack import: " + ", ".join(parts)
 
 
+RE_SECTION_LINE = re.compile(r"^(?:\s*)#{1,6}(?:\s+.*)?\s*$")
+
+
 def strip_cards_for_preview(
     text: str,
     is_scene_heading: Callable[[str], bool],
 ) -> str:
-    """Remove card markers and their bodies (incl. @vN lines) for preview/PDF.
+    """Remove planning chrome for preview/PDF.
 
-    Beat markers are also removed so planning chrome never hits the page.
+    Strips:
+      - card markers and their bodies (incl. @vN lines)
+      - beat markers
+      - Fountain section lines (``# Act One``, ``## Sequence``, …)
+
     Scene headings, action, and dialogue outside card blocks are kept.
+    Sections remain in the editor and Outline navigator — page preview only.
     """
     plain = text.splitlines()
     ends_with_nl = text.endswith("\n")
@@ -1614,6 +1622,12 @@ def strip_cards_for_preview(
         if RE_CARD_LINE.match(line) or RE_BEAT_LINE.match(line):
             i = _body_end(plain, i + 1, is_scene_heading)
             # Drop one following blank if we would double-space awkwardly
+            if out and out[-1].strip() == "" and i < len(plain) and not plain[i].strip():
+                i += 1
+            continue
+        # Outline sections are editor/navigator structure, not page text.
+        if RE_SECTION_LINE.match(line):
+            i += 1
             if out and out[-1].strip() == "" and i < len(plain) and not plain[i].strip():
                 i += 1
             continue

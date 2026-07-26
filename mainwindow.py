@@ -1344,7 +1344,7 @@ class MainWindow(QMainWindow):
         self._beats_refresh.start()
 
     def _preview_source_text(self) -> str:
-        """Fountain text for preview/PDF: strip card/beat chrome (incl. @vN)."""
+        """Fountain text for preview/PDF: strip cards/beats/sections (incl. @vN)."""
         import cards as cards_mod
 
         return cards_mod.strip_cards_for_preview(
@@ -1356,8 +1356,9 @@ class MainWindow(QMainWindow):
         """
         Push editor text to every live preview surface.
 
-        Card/beat markers and version lines (@vN) are stripped so the page
-        never shows planning chrome. Embedded preview stays warm for PDF.
+        Card/beat markers, version lines (@vN), and Fountain ``#`` sections are
+        stripped so the page never shows planning/outline chrome. Embedded
+        preview stays warm for PDF.
         """
         text = self._preview_source_text()
         self.preview.set_fountain_text(text, immediate=immediate)

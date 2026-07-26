@@ -1,6 +1,6 @@
 # FountainPad — User Guide
 
-**Last updated:** 2026-07-26 (P1 project binder + C4 beat board + N4 outline + C7 packs)  
+**Last updated:** 2026-07-26 (autocomplete + P1 binder + C4 beat board + N4 outline + C7 packs)  
 **Audience:** someone using the app (not building it)  
 **Honesty rule:** features marked **Partial** work today but are not finished products. If something feels unclear, that is a real UX signal — this guide should explain what to expect.
 
@@ -76,7 +76,7 @@ Standard text editing against the **source editor** (not the preview):
 | **Show Split Preview** | Show/hide the **in-window** preview pane only. Independent of a detached window. |
 | **Detach Preview Window** | Open a **second** live preview in its own window. Does not remove the split preview. If already detached, focuses that window. |
 | **Reattach Preview** | Close the floating preview **and** turn the split preview **on** so you are not left without a preview. |
-| **Show Card Markers in Editor** | When **on** (default), `[[card: …]]` lines are easy to see in the source. When **off**, those lines are **dimmed** in the editor only (still saved). Card/beat markers, card bodies, and `@vN` version lines are **removed** from the formatted **preview** and **PDF** (not just dimmed). |
+| **Show Card Markers in Editor** | When **on** (default), `[[card: …]]` lines are easy to see in the source. When **off**, those lines are **dimmed** in the editor only (still saved). Card/beat markers, card bodies, `@vN` version lines, and Fountain **`#` section** lines (`# Act One`, …) are **removed** from the formatted **preview** and **PDF** (not just dimmed). Sections still appear in the **Outline** and source. |
 | **Dark Mode** | Toggle dark theme for editor chrome and preview. |
 
 ### Help
@@ -102,6 +102,22 @@ FountainPad highlights common Fountain elements:
 
 The preview updates shortly after you stop typing (debounced).  
 If the split preview is hidden, the editor uses full width (word wrap off for long lines is intentional when preview is closed).
+
+### Autocomplete
+
+**Status:** Available (v1 — document-driven)
+
+While typing in the **source editor**:
+
+- **Ctrl/Cmd+Space** — force the completion popup
+- Popup also appears when you type scene prefixes (`INT.`, `EXT.`, …) or an all-caps character-like line
+- Suggestions include:
+  - common Fountain elements (`INT. `, `CUT TO:`, `(V.O.)`, …)
+  - **scene headings** and bare **locations** already in this script
+  - **character names** already used (plus `NAME (CONT'D)`)
+- Lists refresh a moment after you stop typing (debounced)
+
+Choose with Enter/Tab; Esc dismisses. Completions replace the active prefix on the current line.
 
 ---
 
@@ -138,6 +154,8 @@ EXT. STREET - NIGHT
 ```
 
 **How to use it:** structure the draft with `#` / `##` binders, then jump acts, sequences, and scenes without scrolling.
+
+**Preview/PDF:** section lines (`# Act One`, …) stay in the **source** and **Outline** only — they are **not** shown on the formatted page (same idea as cards/beats).
 
 **Not yet:** drag-reorder sections in the tree; multi-document binder tabs.
 

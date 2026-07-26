@@ -9,15 +9,16 @@ Write plain-text `.fountain` on the left, see a properly formatted screenplay pr
 - Traditional menus: **File · Edit · View · Help** (Help last)
 - **In-app Help** — Help → FountainPad Help (or **F1**) opens `resources/help/USER_GUIDE.md` (living guide; marks partial features honestly)
 - Fountain text editor with monospace font and line numbers
+- **Autocomplete** — Ctrl/Cmd+Space (also auto on scene prefixes / character cues); characters, locations, scene headings, common elements from the open script
 - Syntax highlighting for scene headings, character cues, dialogue, parentheticals, transitions, sections, notes, and title-page keys
-- **Outline navigator (N4)** — Fountain `#` / `##` sections + `INT.`/`EXT.` scenes in a tree; filter; click to jump (View → Show Scene Navigator)
+- **Outline navigator (N4)** — Fountain `#` / `##` sections + `INT.`/`EXT.` scenes in a tree; filter; click to jump (View → Show Scene Navigator). Section lines stay in source/outline only — hidden from preview/PDF
 - **Index cards** *(partial, cards-first)* — type in the panel (auto-saves); multi-line labels; versions; **Apply → script** (action only, never dialogue); **Scene ↑/↓** or **drag** a card to move its whole scene; stable ids; cards/`@vN` stripped from preview/PDF
 - **Beat board (C4)** — freeform canvas of `[[beat: …]]` stickies; drag to place (`x=`/`y=` on marker); Layout grid; filter + jump
 - **Project binder (P1)** — File → Open Project Folder… seeds `script.fountain` + `canon.md` / `beats.md` / `cards.md`, binder list, side notes editor, pack buttons
 - **Card / beat packs (C7)** — File → Export/Import Card Pack (`cards.md`) and Beat Pack (`beats.md`); merge by card id / beat label; `.fountain` stays the screenplay source of truth
 - **Live split preview** (editor | formatted page) with 300ms debounce — show/hide independently
 - **Detach / reattach preview** — floating window plus in-window split; Reattach restores split
-- **Export PDF** from the formatted preview (File → Export PDF…); Fountain `[[notes]]` hidden in print CSS
+- **Export PDF** from the formatted preview (File → Export PDF…); Fountain `[[notes]]`, cards/beats, and `#` section lines hidden from the page
 - New / Open / Close / Save / Save As for `.fountain` files; standard Edit commands (Undo/Redo/Cut/Copy/Paste/Select All)
 - Unsaved-changes tracking and window title indicator
 - Light / Dark mode (editor + preview)
@@ -120,6 +121,7 @@ Exact package names vary by distro; PySide6 wheels bundle most of Qt.
 | Ctrl/Cmd+Shift+P | Detach preview window |
 | Ctrl/Cmd+Alt+P | Reattach preview (close float + show split) |
 | Ctrl/Cmd+D | Toggle dark mode |
+| Ctrl/Cmd+Space | Autocomplete (characters / scenes / elements) |
 | Ctrl/Cmd+Q | Quit |
 
 ## Planning docs (product / later)

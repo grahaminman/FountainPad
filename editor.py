@@ -10,6 +10,8 @@ FountainEditor
   - current-line highlight
   - contentChanged signal (used by MainWindow for dirty flag + preview sync)
   - word wrap toggled by MainWindow when split preview is shown/hidden
+  - autocomplete (QCompleter): characters, scenes/locations, common elements;
+    Ctrl/Cmd+Space force; auto-popup on scene prefixes / uppercase cues
 
 Scene helpers (used by navigator + status bar)
   is_scene_heading(text)     INT/EXT/EST/I/E or forced ".HEADING"
@@ -33,7 +35,7 @@ from __future__ import annotations
 import re
 from typing import Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QStringListModel, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
     QFont,
@@ -44,7 +46,7 @@ from PySide6.QtGui import (
     QTextFormat,
     QTextOption,
 )
-from PySide6.QtWidgets import QPlainTextEdit, QTextEdit, QWidget
+from PySide6.QtWidgets import QCompleter, QPlainTextEdit, QTextEdit, QWidget
 
 import cards as cards_mod
 
@@ -263,6 +265,25 @@ class FountainEditor(QPlainTextEdit):
         self.update_line_number_area_width(0)
         self.apply_theme(False)
 
+        # Autocomplete (character names + scene prefixes + common elements)
+        self._completer = QCompleter(self)
+        self._completer.setWidget(self)
+        self._completer.setCompletionMode(QCompleter.PopupCompletion)
+        self._completer.setCaseSensitivity(Qt.CaseInsensitive)
+        self._completer.activated.connect(self._insert_completion)
+
+        self._completion_model = QStringListModel(self)
+        self._completer.setModel(self._completion_model)
+
+        # Debounced completion list refresh
+        self._completion_timer = QTimer(self)
+        self._completion_timer.setSingleShot(True)
+        self._completion_timer.setInterval(400)
+        self._completion_timer.timeout.connect(self.update_completions)
+        self.textChanged.connect(self._schedule_completion_update)
+
+        self.update_completions()  # initial population
+
     def highlighter(self) -> FountainHighlighter:
         return self._highlighter
 
@@ -370,6 +391,180 @@ class FountainEditor(QPlainTextEdit):
         selection.cursor = self.textCursor()
         selection.cursor.clearSelection()
         self.setExtraSelections([selection])
+
+    # ------------------------------------------------------------------
+    # Autocomplete support
+    # ------------------------------------------------------------------
+
+    def _schedule_completion_update(self) -> None:
+        self._completion_timer.start()
+
+    def update_completions(self) -> None:
+        """Rebuild the completion list from the current document."""
+        text = self.toPlainText()
+        suggestions: list[str] = []
+
+        # Static common prefixes (always useful)
+        suggestions.extend(
+            [
+                "INT. ",
+                "EXT. ",
+                "I/E. ",
+                "EST. ",
+                ".HEADING ",
+                "CUT TO:",
+                "FADE TO:",
+                "SMASH CUT TO:",
+                "MATCH CUT TO:",
+                "FADE IN:",
+                "FADE OUT.",
+                "DISSOLVE TO:",
+                "(CONT'D)",
+                "(V.O.)",
+                "(O.S.)",
+                "(O.C.)",
+                "(CONTINUOUS)",
+            ]
+        )
+
+        # Full scene headings + bare locations for reuse
+        for _bn, heading in self.list_scene_headings():
+            if heading not in suggestions:
+                suggestions.append(heading)
+            m = re.match(
+                r"^(?:INT|EXT|EST|I/?E|INT\./EXT|INT/EXT)[\.\s]+(.+?)(?:\s*-\s*.+)?$",
+                heading,
+                re.IGNORECASE,
+            )
+            if m:
+                loc = m.group(1).strip(" .")
+                if loc and loc not in suggestions:
+                    suggestions.append(loc)
+
+        # Character names (skip scene headings / transitions / notes)
+        re_char = self._highlighter.re_character
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("[[") or stripped.startswith("#"):
+                continue
+            if self.is_scene_heading(stripped):
+                continue
+            if self._highlighter.re_transition.match(
+                stripped
+            ) or self._highlighter.re_transition_gt.match(stripped):
+                continue
+            if self._highlighter.re_parenthetical.match(stripped):
+                continue
+            m = re_char.match(stripped)
+            if not m:
+                continue
+            name = m.group(1).strip()
+            if not name or name in suggestions:
+                continue
+            # Avoid all-caps action lines that look like sentences
+            if "  " in name or len(name) > 40:
+                continue
+            suggestions.append(name)
+            cont = f"{name} (CONT'D)"
+            if cont not in suggestions:
+                suggestions.append(cont)
+
+        # Deduplicate while preserving order
+        seen: set[str] = set()
+        unique: list[str] = []
+        for s in suggestions:
+            if s not in seen:
+                seen.add(s)
+                unique.append(s)
+
+        self._completion_model.setStringList(unique)
+
+    def _completion_prefix(self) -> str:
+        """Text from start of current line (or last word) used as completer prefix."""
+        cursor = self.textCursor()
+        block_text = cursor.block().text()[: cursor.positionInBlock()]
+        # Prefer whole line prefix for scene/character lines; fall back to last token.
+        stripped_line = block_text.lstrip()
+        if not stripped_line:
+            return ""
+        # If line looks like a partial scene heading / transition / paren, use full line content
+        upper = stripped_line.upper()
+        if (
+            upper.startswith(("INT", "EXT", "EST", "I/E", "I/E.", "CUT", "FADE", "SMASH", "MATCH", "."))
+            or stripped_line.startswith("(")
+        ):
+            return stripped_line
+        # Character-ish: last run of word chars / spaces / apostrophes on the line
+        m = re.search(r"([A-Za-z0-9 .'()\-]+)$", stripped_line)
+        return m.group(1) if m else stripped_line
+
+    def _insert_completion(self, completion: str) -> None:
+        """Replace the active prefix with the chosen completion."""
+        cursor = self.textCursor()
+        prefix = self._completion_prefix()
+        if prefix:
+            # Move back over the prefix characters actually present before the cursor
+            block_text = cursor.block().text()[: cursor.positionInBlock()]
+            if block_text.endswith(prefix):
+                for _ in range(len(prefix)):
+                    cursor.deletePreviousChar()
+            else:
+                # Fallback: delete only the trailing token length
+                token = prefix.split()[-1] if prefix.split() else prefix
+                if block_text.upper().endswith(token.upper()):
+                    for _ in range(len(token)):
+                        cursor.deletePreviousChar()
+        cursor.insertText(completion)
+        self.setTextCursor(cursor)
+
+    def _show_completions(self, force: bool = False) -> None:
+        """Show popup filtered by the current line/token prefix."""
+        prefix = self._completion_prefix()
+        self._completer.setCompletionPrefix(prefix)
+        cr = self.cursorRect()
+        cr.setWidth(
+            self._completer.popup().sizeHintForColumn(0)
+            + self._completer.popup().verticalScrollBar().sizeHint().width()
+            + 24
+        )
+        if force or self._completer.completionCount() > 0:
+            self._completer.complete(cr)
+
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        # Ctrl/Cmd+Space — force completer (handle before super so no space is inserted)
+        ctrl_or_cmd = bool(event.modifiers() & (Qt.ControlModifier | Qt.MetaModifier))
+        if ctrl_or_cmd and event.key() == Qt.Key_Space:
+            self._show_completions(force=True)
+            event.accept()
+            return
+
+        if self._completer.popup().isVisible():
+            # Let the completer handle navigation / accept / dismiss
+            if event.key() in (
+                Qt.Key_Enter,
+                Qt.Key_Return,
+                Qt.Key_Escape,
+                Qt.Key_Tab,
+                Qt.Key_Backtab,
+            ):
+                event.ignore()
+                return
+
+        super().keyPressEvent(event)
+
+        # Don't auto-popup while modifiers-only / navigation
+        if event.text() and not ctrl_or_cmd:
+            cursor = self.textCursor()
+            block_text = cursor.block().text()[: cursor.positionInBlock()]
+            stripped = block_text.strip()
+            upper = stripped.upper()
+            # Scene prefixes, forced heading, or typing uppercase character-ish line
+            if (
+                upper.endswith(("INT.", "EXT.", "I/E.", "EST.", "INT", "EXT"))
+                or stripped == "."
+                or (len(stripped) >= 2 and stripped.isupper() and stripped.replace(" ", "").isalnum())
+            ):
+                self._show_completions(force=False)
 
     def is_scene_heading(self, text: str) -> bool:
         """True if a line is a Fountain scene heading (INT/EXT or forced .heading)."""
