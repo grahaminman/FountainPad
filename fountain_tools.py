@@ -65,9 +65,10 @@ STATIC_EXTENSIONS = (
 )
 STATIC_TITLE_KEYS = tuple(f"{k}: " for k in TITLE_PAGE_KEYS)
 
-# Rough US Letter screenplay estimate: ~55 lines/page after title page chrome.
-LINES_PER_PAGE = 55
-# Common rule of thumb: ~1 page ≈ 1 minute.
+# Rough US Letter screenplay density: ~200 words per formatted page
+# (common writer rule of thumb). Source lines are not Courier page lines.
+WORDS_PER_PAGE = 200
+# Common rule of thumb: ~1 page approximates 1 minute of screen time.
 MINUTES_PER_PAGE = 1.0
 
 
@@ -248,10 +249,13 @@ def replace_title_page(text: str, values: Dict[str, str]) -> str:
 
 
 def estimate_pages(text: str) -> Tuple[float, float, int, int]:
-    """Return (pages, minutes, body_lines, word_count).
+    """Return (pages, minutes, content_lines, word_count).
 
-    Uses stripped preview-ish body: skips title page, section markers,
-    card/beat markers, and @vN lines. Rough screenplay estimate only.
+    Body is preview-ish source: skips title page, ``#`` sections, card/beat
+    markers, and ``@vN`` lines. **Pages = words / WORDS_PER_PAGE** (~200),
+    matching common average words-per-screenplay-page guidance better than
+    counting raw Fountain lines (those are not paginated Courier lines).
+    Still an estimate - real PDF pagination depends on spacing and elements.
     """
     _title, end = parse_title_page(text)
     lines = (text or "").splitlines()[end:]
@@ -266,15 +270,12 @@ def estimate_pages(text: str) -> Tuple[float, float, int, int]:
         if s.startswith("=="):
             continue
         body.append(ln)
-    # Count non-empty lines for page estimate
     content_lines = sum(1 for ln in body if ln.strip())
     words = len(re.findall(r"\S+", "\n".join(body)))
-    pages = max(content_lines / float(LINES_PER_PAGE), 0.0)
-    # Round to 1 decimal for UI
+    pages = max(words / float(WORDS_PER_PAGE), 0.0) if words else 0.0
     pages_r = round(pages, 1)
     minutes = round(pages_r * MINUTES_PER_PAGE, 1)
     return pages_r, minutes, content_lines, words
-
 
 def find_character_dialogue_blocks(
     text: str,

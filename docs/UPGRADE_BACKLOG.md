@@ -91,7 +91,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 | N2 | This-scene / this-character stats | Extend status bar | Highland-ish / FD |
 | N3 | Go to scene / character palette | Cmd/Ctrl+P style | General editor UX |
 | N4 | Section/`#` outline tree | Fountain sections as binder | **DONE 2026-07-26** — Outline tree (sections nest by `#` depth; scenes under nearest section); filter; jump; card-body slugs skipped |
-| N5 | Page count estimate in preview | **DONE 2026-07-26** — status bar ~pp / ~min (rough; ~55 lines/page) |
+| N5 | Page count estimate in preview | **DONE 2026-07-26** — status bar ~pp / ~min; **words÷200** (was lines/55; corrected same day) |
 
 ### C. Cards & boards (explicit Graham ask + FD/WriterDuet)
 

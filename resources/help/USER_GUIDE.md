@@ -422,7 +422,7 @@ Same idea for `[[beat: Label]]` markers — export the list, edit in markdown if
 - **Scene:** nearest scene heading above the cursor  
 - **Counts:** characters and words, plus a **rough** page estimate (`~N pp`) and duration (`~N min`)  
   - Estimate skips title page, `#` sections, and card/beat chrome  
-  - Uses ~55 content lines per page and ~1 minute per page — guidance only, not production timing  
+  - **Pages ≈ words ÷ 200** (common average words-per-screenplay-page rule of thumb) and **~1 minute per page** — guidance only, not production timing or PDF pagination  
 
 ---
 

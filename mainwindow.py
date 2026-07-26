@@ -2228,7 +2228,7 @@ class MainWindow(QMainWindow):
         if len(scene) > 60:
             scene = scene[:57] + "…"
         self._scene_label.setText(f"Scene: {scene}")
-        # Rough screenplay estimate (~55 lines/page; ~1 min/page)
+        # Rough screenplay estimate (~200 words/page; ~1 min/page)
         self._count_label.setText(
             f"{chars} chars · {words} words · ~{pages:g} pp · ~{minutes:g} min"
         )
