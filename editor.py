@@ -299,15 +299,23 @@ class FountainEditor(QPlainTextEdit):
                 }
                 """
             )
+        # Stylesheets can reset viewport margins on Qt/macOS — re-apply gutter inset
+        # so the first characters are never drawn under the line-number column.
+        self.update_line_number_area_width()
         self.highlight_current_line()
 
     def line_number_area_width(self) -> int:
-        digits = len(str(max(1, self.blockCount())))
-        space = 12 + self.fontMetrics().horizontalAdvance("9") * digits
+        digits = max(3, len(str(max(1, self.blockCount()))))
+        # Extra padding so numbers + gap never crowd the first glyph of the line.
+        space = 16 + self.fontMetrics().horizontalAdvance("9") * digits + 8
         return space
 
     def update_line_number_area_width(self, _count: int = 0) -> None:
-        self.setViewportMargins(self.line_number_area_width(), 0, 0, 0)
+        width = self.line_number_area_width()
+        self.setViewportMargins(width, 0, 0, 0)
+        # Keep the gutter widget in sync immediately (not only on resize).
+        cr = self.contentsRect()
+        self._line_number_area.setGeometry(cr.left(), cr.top(), width, cr.height())
 
     def update_line_number_area(self, rect, dy) -> None:
         if dy:
@@ -319,10 +327,8 @@ class FountainEditor(QPlainTextEdit):
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
-        cr = self.contentsRect()
-        self._line_number_area.setGeometry(
-            cr.left(), cr.top(), self.line_number_area_width(), cr.height()
-        )
+        # Re-assert margins after geometry changes (stylesheet/layout races).
+        self.update_line_number_area_width()
 
     def line_number_area_paint_event(self, event) -> None:
         from PySide6.QtGui import QPainter

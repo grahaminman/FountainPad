@@ -78,8 +78,17 @@ def main() -> int:
     print("at end:", scene3)
 
     ed.apply_theme(True)
+    # Gutter must leave a left viewport margin so text is not under line numbers
+    vm = ed.viewportMargins()
+    assert vm.left() >= ed.line_number_area_width() - 1, (
+        vm.left(),
+        ed.line_number_area_width(),
+    )
+    assert ed.line_number_area_width() >= 24
     ed.apply_theme(False)
-    print("theme toggle OK")
+    vm2 = ed.viewportMargins()
+    assert vm2.left() >= ed.line_number_area_width() - 1, (vm2.left(), ed.line_number_area_width())
+    print("theme toggle OK", "gutter", ed.line_number_area_width(), "margin", vm2.left())
 
     # Cards / beats parsers (Phase 2)
     sample_cards = (
