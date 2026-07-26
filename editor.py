@@ -14,6 +14,7 @@ FountainEditor
 Scene helpers (used by navigator + status bar)
   is_scene_heading(text)     INT/EXT/EST/I/E or forced ".HEADING"
   list_scene_headings()      [(block_number, heading), ...] document order
+  list_outline_nodes()       N4: sections (#) + scenes for outline tree
   goto_block(n)              jump + centre + focus
   current_scene_heading()    walk upward from cursor to nearest heading
 
@@ -374,21 +375,25 @@ class FountainEditor(QPlainTextEdit):
             or self._highlighter.re_scene_dot.match(stripped)
         )
 
+    def _card_body_skip_blocks(self) -> set[int]:
+        """Block numbers inside card bodies (draft slugs, @vN text) — not real scenes."""
+        text = self.toPlainText()
+        skip: set[int] = set()
+        lines = text.splitlines()
+        for info in cards_mod.list_cards_from_text(text, self.is_scene_heading):
+            start = info.block_number + 1
+            end = cards_mod._body_end(lines, start, self.is_scene_heading)
+            for bn in range(start, end):
+                skip.add(bn)
+        return skip
+
     def list_scene_headings(self) -> list[tuple[int, str]]:
         """Return (block_number, heading_text) for every scene heading in order.
 
         Draft sluglines stored inside card version bodies are skipped so the
         scene navigator only shows real screenplay scenes.
         """
-        text = self.toPlainText()
-        skip: set[int] = set()
-        for info in cards_mod.list_cards_from_text(text, self.is_scene_heading):
-            # Marker line + body lines until next block after body
-            lines = text.splitlines()
-            start = info.block_number + 1
-            end = cards_mod._body_end(lines, start, self.is_scene_heading)
-            for bn in range(start, end):
-                skip.add(bn)
+        skip = self._card_body_skip_blocks()
         scenes: list[tuple[int, str]] = []
         block = self.document().firstBlock()
         while block.isValid():
@@ -398,6 +403,38 @@ class FountainEditor(QPlainTextEdit):
                 scenes.append((bn, line.strip()))
             block = block.next()
         return scenes
+
+    def list_outline_nodes(self) -> list[tuple[str, int, int, str]]:
+        """N4 outline: Fountain sections + real scenes in document order.
+
+        Each node is ``(kind, block_number, level, title)``:
+
+        - kind: ``"section"`` or ``"scene"``
+        - level: section depth 1–6 (number of ``#``); scenes use 0
+        - title: section label or scene heading text
+
+        Section lines inside card bodies are ignored (same skip rules as scenes).
+        """
+        skip = self._card_body_skip_blocks()
+        re_section = self._highlighter.re_section
+        nodes: list[tuple[str, int, int, str]] = []
+        block = self.document().firstBlock()
+        while block.isValid():
+            bn = block.blockNumber()
+            line = block.text()
+            stripped = line.strip()
+            if bn in skip or not stripped:
+                block = block.next()
+                continue
+            m = re_section.match(line)
+            if m:
+                hashes, title = m.group(1), (m.group(2) or "").strip()
+                level = len(hashes)
+                nodes.append(("section", bn, level, title or "(untitled section)"))
+            elif self.is_scene_heading(line):
+                nodes.append(("scene", bn, 0, stripped))
+            block = block.next()
+        return nodes
 
     def goto_block(self, block_number: int) -> None:
         """Move cursor to the start of a document block and centre it in view."""

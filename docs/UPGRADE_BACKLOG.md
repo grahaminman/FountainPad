@@ -69,6 +69,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 - [x] Card panel UX: auto-save typing, multi-row buttons, multi-line wrap labels, strip cards/@vN from preview+PDF (2026-07-24)
 - [x] Phase C2: drag-drop card list reorders whole scene (absolute scene index; 2026-07-24)
 - [x] C7 markdown card/beat pack export+import (2026-07-26)
+- [x] N4 section/`#` outline tree (2026-07-26)
 - [ ] Keep USER_GUIDE honest as cards/beats/project mature
 
 ### A. Distribution & trust (product)
@@ -87,7 +88,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 | N1 | **Scene navigator** | List of scene headings; click → jump; filter INT/EXT/time | **DONE 2026-07-23** (list + filter + jump; View toggle) |
 | N2 | This-scene / this-character stats | Extend status bar | Highland-ish / FD |
 | N3 | Go to scene / character palette | Cmd/Ctrl+P style | General editor UX |
-| N4 | Section/`#` outline tree | Fountain sections as binder | Fountain native |
+| N4 | Section/`#` outline tree | Fountain sections as binder | **DONE 2026-07-26** — Outline tree (sections nest by `#` depth; scenes under nearest section); filter; jump; card-body slugs skipped |
 | N5 | Page count estimate in preview | Writers obsess over pages | Universal |
 
 ### C. Cards & boards (explicit Graham ask + FD/WriterDuet)
@@ -105,7 +106,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 
 **Shipped v1 cards (2026-07-23 evening):** C1 list + jump, C6 template buttons, C4-as-list beats, project folder seeds (`canon.md` / `beats.md` / `cards.md`).  
 **C7 done (2026-07-26):** export/import `cards.md` + `beats.md` (explicit File menu; merge by card id / beat label).  
-**Still open:** true freeform C4, scene-summary cards (not only inline markers), auto-watch pack sync (intentionally not done).
+**Still open:** true freeform C4, scene-summary cards (not only inline markers), auto-watch pack sync (intentionally not done). N4 outline done 2026-07-26.
 
 ### D. Fountain craft & export
 
@@ -198,10 +199,10 @@ Sources sampled 2026-07-21 (non-exhaustive): Final Draft KB/blog (Beat Board, In
 - C6 Goal/Conflict/Turn template buttons ✅ partial  
 - C4 beat list (not freeform canvas) ✅ partial  
 - P1 project folder seed files ✅ partial  
-- C7 full markdown card-pack exchange — still open  
-- P3/P4 card ↔ scene helpers — still open  
-- N4 section outline — still open  
-- **Uncommitted 2026-07-23 night:** F5 print CSS for notes hide (light+dark); smoke test rewrite incomplete  
+- C7 full markdown card-pack exchange ✅ (2026-07-26)  
+- P3 empty cards from scenes ✅ · P4 Apply card→script ✅ partial  
+- N4 section outline ✅ (2026-07-26)  
+- F5 print CSS + smoke restored on stabilise pass (2026-07-24)  
 
 ### Phase 3 — “board + industry exchange”
 - C2 reorder ✅ (2026-07-24 Up/Down + drag-drop)  

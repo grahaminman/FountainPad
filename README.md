@@ -10,7 +10,7 @@ Write plain-text `.fountain` on the left, see a properly formatted screenplay pr
 - **In-app Help** — Help → FountainPad Help (or **F1**) opens `resources/help/USER_GUIDE.md` (living guide; marks partial features honestly)
 - Fountain text editor with monospace font and line numbers
 - Syntax highlighting for scene headings, character cues, dialogue, parentheticals, transitions, sections, notes, and title-page keys
-- **Scene navigator** — list of `INT.`/`EXT.` headings, filter, click to jump (View → Show Scene Navigator)
+- **Outline navigator (N4)** — Fountain `#` / `##` sections + `INT.`/`EXT.` scenes in a tree; filter; click to jump (View → Show Scene Navigator)
 - **Index cards** *(partial, cards-first)* — type in the panel (auto-saves); multi-line labels; versions; **Apply → script** (action only, never dialogue); **Scene ↑/↓** or **drag** a card to move its whole scene; stable ids; cards/`@vN` stripped from preview/PDF
 - **Beat board (list)** *(partial)* — `[[beat: …]]` markers, filter, jump (View → Show Beat Board)
 - **Project folder** *(partial)* — File → Open Project Folder… seeds `canon.md` / `beats.md` / `cards.md` and loads `script.fountain` when present

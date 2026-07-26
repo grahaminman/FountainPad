@@ -1078,8 +1078,11 @@ class MainWindow(QMainWindow):
             self._detached.preview.set_fountain_text(text, immediate=immediate)
 
     def _refresh_navigator(self) -> None:
-        scenes = self.editor.list_scene_headings()
-        self.navigator.set_scenes(scenes)
+        # N4: sections (#) + scenes in one outline tree
+        if hasattr(self.editor, "list_outline_nodes"):
+            self.navigator.set_outline(self.editor.list_outline_nodes())
+        else:
+            self.navigator.set_scenes(self.editor.list_scene_headings())
         block_no = self.editor.textCursor().blockNumber()
         self.navigator.highlight_block(block_no)
 

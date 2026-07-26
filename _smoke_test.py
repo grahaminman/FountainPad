@@ -142,11 +142,11 @@ def main() -> int:
     assert "About FountainPad" in help_menu_texts, help_menu_texts
     print("menus/help OK", titles, help_path.name)
 
-    # Scene navigator
+    # Scene / outline navigator (N4: sections + scenes)
     scenes = w.editor.list_scene_headings()
     assert len(scenes) >= 2, scenes
     w._refresh_navigator()
-    assert w.navigator._list.count() >= 2
+    assert w.navigator.count() >= 2
     first_block, first_heading = scenes[0]
     w._on_scene_activated(first_block)
     assert w.editor.current_scene_heading().startswith(first_heading[:10])
@@ -155,6 +155,55 @@ def main() -> int:
     w.toggle_navigator(True)
     assert not w.navigator.isHidden()
     print("navigator OK", [h for _, h in scenes])
+
+    # N4 outline tree: # sections nest scenes
+    w.editor.setPlainText(
+        "# Act One\n\n"
+        "## Opening\n\n"
+        "INT. ONE - DAY\n\n"
+        "Action one.\n\n"
+        "INT. TWO - NIGHT\n\n"
+        "Action two.\n\n"
+        "# Act Two\n\n"
+        "INT. THREE - DAY\n\n"
+        "Action three.\n"
+    )
+    w._dirty = False
+    nodes = w.editor.list_outline_nodes()
+    kinds = [k for k, _b, _l, _t in nodes]
+    assert kinds.count("section") >= 3, nodes
+    assert kinds.count("scene") == 3, nodes
+    # Depth: # = 1, ## = 2
+    levels = {(t, lv) for k, _b, lv, t in nodes if k == "section"}
+    assert ("Act One", 1) in levels and ("Opening", 2) in levels, levels
+    w._refresh_navigator()
+    assert w.navigator.count() >= 6, w.navigator.count()
+    # Jump to a section title
+    act2 = next(b for k, b, _l, t in nodes if k == "section" and t == "Act Two")
+    w._on_scene_activated(act2)
+    # Jump to nested scene under Opening
+    one = next(b for k, b, _l, t in nodes if k == "scene" and "ONE" in t)
+    w._on_scene_activated(one)
+    assert "ONE" in w.editor.current_scene_heading()
+    # Filter keeps matching branch
+    w.navigator._filter.setText("Opening")
+    assert w.navigator.count() >= 1
+    w.navigator._filter.setText("")
+    # Draft slug inside card body must not appear as outline scene
+    w.editor.setPlainText(
+        "# Plan\n\n"
+        "[[card: id=c900 | Note]]\n"
+        "@v1\n"
+        "INT. FAKE - DAY\n"
+        "note body\n\n"
+        "INT. REAL - DAY\n\n"
+        "Real action.\n"
+    )
+    nodes2 = w.editor.list_outline_nodes()
+    scene_titles = [t for k, _b, _l, t in nodes2 if k == "scene"]
+    assert scene_titles == ["INT. REAL - DAY"], scene_titles
+    assert any(k == "section" and t == "Plan" for k, _b, _l, t in nodes2)
+    print("N4 outline OK", nodes[:4], "…")
 
     # Index cards + template insert + beat board
     w.editor.setPlainText(

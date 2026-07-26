@@ -24,7 +24,7 @@ Traditional order: **File · Edit · View · Help**.
 | `mainwindow.py` | Shell: menus, splitters, file ops, preview modes, PDF, project folder, C7 pack export/import, settings |
 | `editor.py` | `FountainEditor` + `FountainHighlighter` + scene / `list_cards` / `list_beats` helpers |
 | `cards.py` | Card parse/versions/apply/reorder + C7 markdown pack serialise/merge |
-| `navigator.py` | Scene list + filter + jump signal |
+| `navigator.py` | N4 outline tree (`#` sections + scenes) + filter + jump signal |
 | `cardnavigator.py` | Index cards list + editable detail + versions + reorder |
 | `beatboard.py` | Beat list (linear) + filter + jump — not freeform canvas |
 | `preview.py` | `FountainPreview` (WebEngine) + `PreviewWindow` + `print_to_pdf` |

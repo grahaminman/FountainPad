@@ -1,6 +1,6 @@
 # FountainPad — User Guide
 
-**Last updated:** 2026-07-26 (C7 markdown card/beat pack sync)  
+**Last updated:** 2026-07-26 (N4 outline tree + C7 packs)  
 **Audience:** someone using the app (not building it)  
 **Honesty rule:** features marked **Partial** work today but are not finished products. If something feels unclear, that is a real UX signal — this guide should explain what to expect.
 
@@ -23,7 +23,7 @@ Fountain is a plain-text screenplay format. Learn more at [fountain.io](https://
 
 From left to right (when all panels are shown):
 
-1. **Scene Navigator** — list of scene headings  
+1. **Outline** — Fountain `#` sections + scene headings (tree)  
 2. **Index Cards** — list of `[[card: …]]` markers in the script  
 3. **Editor** — your Fountain source  
 4. **Split Preview** (optional) — formatted page beside the editor  
@@ -70,7 +70,7 @@ Standard text editing against the **source editor** (not the preview):
 
 | Command | What it does |
 |---|---|
-| **Show Scene Navigator** | Toggle the left scene list. Click a scene to jump. Filter box narrows the list. |
+| **Show Scene Navigator** | Toggle the left **Outline** tree (Fountain `#` sections + scenes). Click a row to jump. Filter narrows the tree. |
 | **Show Index Cards** | Toggle the index-cards panel. **Partial** — see [Index cards](#index-cards-partial) below. |
 | **Show Beat Board** | Toggle the beat list panel. **Partial** — see [Beat board](#beat-board-partial) below. |
 | **Show Split Preview** | Show/hide the **in-window** preview pane only. Independent of a detached window. |
@@ -105,16 +105,41 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
 
 ---
 
-## Scene Navigator
+## Outline (Scene Navigator)
 
-**Status:** Available
+**Status:** Available (N4 — sections + scenes)
 
-- Lists `INT.` / `EXT.` / related scene headings in document order.
-- **Filter** box: type to narrow the list.
-- **Click** a row to jump the editor there and centre the line.
-- Status bar shows the **current scene** under the cursor (walks upward to the nearest heading).
+The left panel is an **outline tree**, not only a flat scene list.
 
-**How to use it:** outline navigation while writing pages — jump without scrolling.
+### What works today
+
+- **Fountain sections** — lines starting with `#` … `######` (e.g. `# Act One`, `## Sequence A`).
+- **Scenes** — `INT.` / `EXT.` / related headings nest under the nearest shallower section above them.
+- Scenes with no section above sit at the **root** of the tree.
+- **Filter** box: type to narrow; matching branches stay visible (ancestors kept).
+- **Click** a section or scene to jump the editor there and centre the line.
+- Status bar still shows the **current scene** under the cursor (nearest heading above).
+- Draft sluglines inside **card bodies** do **not** appear as outline scenes.
+
+Example source:
+
+```fountain
+# Act One
+
+## Opening
+
+INT. KITCHEN - DAY
+
+Coffee steams.
+
+# Act Two
+
+EXT. STREET - NIGHT
+```
+
+**How to use it:** structure the draft with `#` / `##` binders, then jump acts, sequences, and scenes without scrolling.
+
+**Not yet:** drag-reorder sections in the tree; multi-document binder tabs.
 
 ---
 
