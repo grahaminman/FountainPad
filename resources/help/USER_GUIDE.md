@@ -1,6 +1,6 @@
 # FountainPad — User Guide
 
-**Last updated:** 2026-07-26 (N4 outline tree + C7 packs)  
+**Last updated:** 2026-07-26 (C4 freeform beat board + N4 outline + C7 packs)  
 **Audience:** someone using the app (not building it)  
 **Honesty rule:** features marked **Partial** work today but are not finished products. If something feels unclear, that is a real UX signal — this guide should explain what to expect.
 
@@ -27,7 +27,7 @@ From left to right (when all panels are shown):
 2. **Index Cards** — list of `[[card: …]]` markers in the script  
 3. **Editor** — your Fountain source  
 4. **Split Preview** (optional) — formatted page beside the editor  
-5. **Beat Board** — list of `[[beat: …]]` markers  
+5. **Beat Board** — freeform canvas of `[[beat: …]]` markers (drag to place)  
 
 You can hide any side panel or the split preview from the **View** menu.  
 There is also an optional **floating preview window** (detached).
@@ -72,7 +72,7 @@ Standard text editing against the **source editor** (not the preview):
 |---|---|
 | **Show Scene Navigator** | Toggle the left **Outline** tree (Fountain `#` sections + scenes). Click a row to jump. Filter narrows the tree. |
 | **Show Index Cards** | Toggle the index-cards panel. **Partial** — see [Index cards](#index-cards-partial) below. |
-| **Show Beat Board** | Toggle the beat list panel. **Partial** — see [Beat board](#beat-board-partial) below. |
+| **Show Beat Board** | Toggle the freeform beat canvas. Drag stickies to place; positions save on the marker. See [Beat board](#beat-board-c4). |
 | **Show Split Preview** | Show/hide the **in-window** preview pane only. Independent of a detached window. |
 | **Detach Preview Window** | Open a **second** live preview in its own window. Does not remove the split preview. If already detached, focuses that window. |
 | **Reattach Preview** | Close the floating preview **and** turn the split preview **on** so you are not left without a preview. |
@@ -205,31 +205,42 @@ These are **notes toward the draft**, not instructions the script must obey.
 
 ---
 
-## Beat board (Partial)
+## Beat board (C4)
 
-**Status:** Partial — **list**, not a freeform board.
+**Status:** Available — freeform canvas (positions on the marker).
 
 ### What works today
 
-- Markers:
+- Markers in the script:
 
   ```fountain
   [[beat: Act 1 Climax]]
   Optional note on the next line.
+
+  [[beat: Midpoint | x=200 | y=80]]
+  The twist lands here.
   ```
 
-- The **Beat Board** panel lists them with filter + click-to-jump.
-- Labels are freeform (`Midpoint`, `Act 2 Break`, etc.).
+- The **Beat Board** panel is a **spatial canvas** of sticky cards (not only a list).
+- **Drag** a card to place it; FountainPad writes `x=` / `y=` onto that `[[beat:]]` line (grid-snapped).
+- **Click** a card to jump the editor to the marker.
+- **Filter** narrows which stickies are shown.
+- **+ Beat** inserts a new `[[beat: Beat]]` at the cursor.
+- **Layout grid** assigns a tidy grid of positions to every beat (writes coords into the script).
+- Beats without saved coords still appear (temporary auto-grid for display only until you drag or run Layout grid).
+- Parent scene under each sticky is the nearest scene heading above the marker.
+- **Export/Import Beat Pack** still works; packs are label-based (coords stay in the `.fountain`).
 
 ### What is *not* finished
 
-- Not a spatial / drag canvas (Final Draft Beat Board style).
-- No linking UI from beat → multiple scenes beyond “nearest scene above marker”.
-- Beat pack sync is label-based (not stable beat ids yet).
+- No multi-scene link graph from one beat (still “nearest scene above”).
+- No colour tags / swimlanes (see C3 later).
+- Beat pack markdown does not round-trip board coordinates (SoT is the script marker).
+- No stable beat ids yet (merge is by label).
 
-### How you are meant to use it (for now)
+### How you are meant to use it
 
-Mark major plot turns in the script text and jump via the list. Use **Export/Import Beat Pack** when you want a `beats.md` file beside the project. Expect a richer board later if we build one.
+Mark major plot turns with `[[beat: …]]`, open the Beat Board, arrange the story spatially, and jump back to pages from any sticky. Use **Layout grid** when the board gets messy. Use **Export/Import Beat Pack** when you want a `beats.md` planning file beside the project.
 
 ---
 

@@ -217,7 +217,7 @@ def main() -> int:
     w._refresh_card_navigator()
     w._refresh_beat_board()
     assert w.card_navigator._list.count() >= 1
-    assert w.beat_board._list.count() >= 1
+    assert w.beat_board.count() >= 1
     before = w.editor.toPlainText()
     w._insert_card_template("Turn")
     after = w.editor.toPlainText()
@@ -233,6 +233,48 @@ def main() -> int:
     assert w.beat_board.isHidden()
     w.toggle_beat_board(True)
     print("cards/beats UI OK")
+
+    # C4 freeform board: coords on markers, layout grid, drag persist API
+    w.editor.setPlainText(
+        "INT. LAB - DAY\n\n"
+        "[[beat: Setup]]\n"
+        "Establish the lab.\n\n"
+        "[[beat: Midpoint | x=200 | y=80]]\n"
+        "The twist.\n\n"
+        "[[beat: Climax]]\n"
+        "Payoff.\n"
+    )
+    w._dirty = False
+    infos = w.editor.list_beat_infos()
+    assert len(infos) == 3, infos
+    mid = next(b for b in infos if b.label == "Midpoint")
+    assert mid.x == 200 and mid.y == 80, mid
+    setup = next(b for b in infos if b.label == "Setup")
+    assert setup.x is None and setup.y is None
+    # Compat tuples strip coords from label
+    tuples = w.editor.list_beats()
+    assert all("|" not in t[1] for t in tuples), tuples
+    w._refresh_beat_board()
+    assert w.beat_board.count() == 3
+    n = w.editor.auto_layout_beats(cols=3)
+    assert n >= 2, n  # Setup + Climax at least (Midpoint may rewrite too)
+    infos2 = w.editor.list_beat_infos()
+    assert all(b.x is not None and b.y is not None for b in infos2), infos2
+    # Persist a drag
+    bn = infos2[0].block_number
+    assert w.editor.set_beat_board_position(bn, 48, 96) is True
+    again = w.editor.list_beat_infos()
+    hit = next(b for b in again if b.block_number == bn)
+    assert hit.x == 48 and hit.y == 96
+    assert "x=48" in w.editor.toPlainText() and "y=96" in w.editor.toPlainText()
+    w._layout_beats_grid()
+    w._insert_beat_template()
+    assert w.beat_board.count() >= 4
+    # Filter
+    w.beat_board._filter.setText("Midpoint")
+    assert w.beat_board.count() == 1
+    w.beat_board._filter.setText("")
+    print("C4 freeform beat board OK", [(b.label, b.x, b.y) for b in w.editor.list_beat_infos()])
 
     # P3: generate empty cards from scenes (skip scenes that already have cards)
     from PySide6.QtWidgets import QMessageBox

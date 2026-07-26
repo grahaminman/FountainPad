@@ -70,6 +70,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 - [x] Phase C2: drag-drop card list reorders whole scene (absolute scene index; 2026-07-24)
 - [x] C7 markdown card/beat pack export+import (2026-07-26)
 - [x] N4 section/`#` outline tree (2026-07-26)
+- [x] C4 freeform beat board (2026-07-26)
 - [ ] Keep USER_GUIDE honest as cards/beats/project mature
 
 ### A. Distribution & trust (product)
@@ -98,15 +99,15 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 | C1 | **Index card view** | One card per scene: slugline + summary side + optional script peek | **DONE 2026-07-23** (inline `[[card: Type]]` list + filter + jump; View toggle) |
 | C2 | Drag reorder cards → reorder scenes in Fountain | Hard but high value; careful with dual dialogue/notes | **DONE 2026-07-24** — Up/Down + drag-drop; whole scene block; multi-card scenes travel together |
 | C3 | Color tags (plot A/B, POV, day/night) | Metadata in Fountain notes or sidecar JSON | FD Beat Board habits |
-| C4 | **Beat board** (freeform canvas) | Beats not 1:1 scenes; link beat → scene(s) | **Partial 2026-07-23** — linear list of `[[beat: …]]` + jump (not freeform canvas) |
-| C5 | Outline lane (linear) | Horizontal/vertical sequence of beats; lighter than full board | FD Outline Editor — list UI is a first step via C4 partial |
+| C4 | **Beat board** (freeform canvas) | Beats not 1:1 scenes; link beat → scene(s) | **DONE 2026-07-26** — freeform canvas; drag stickies; `x=`/`y=` on `[[beat:]]`; Layout grid; + Beat; filter; jump |
+| C5 | Outline lane (linear) | Horizontal/vertical sequence of beats; lighter than full board | Superseded for v1 by C4 canvas + N4 outline; optional later |
 | C6 | Card templates | Goal / conflict / turn / image / “must hit” fields | **Partial** — Goal/Conflict/Turn + stable ids (2026-07-24) |
 | C7 | Import/export cards as Markdown | Matches OpenClaw `cards/` folder grammar | **DONE 2026-07-26** — File → Export/Import Card Pack + Beat Pack; merge by id/label; `.fountain` remains SoT |
 | C8 | Mind-map lite | Optional links between cards — don’t boil ocean v1 | WriterDuet |
 
 **Shipped v1 cards (2026-07-23 evening):** C1 list + jump, C6 template buttons, C4-as-list beats, project folder seeds (`canon.md` / `beats.md` / `cards.md`).  
 **C7 done (2026-07-26):** export/import `cards.md` + `beats.md` (explicit File menu; merge by card id / beat label).  
-**Still open:** true freeform C4, scene-summary cards (not only inline markers), auto-watch pack sync (intentionally not done). N4 outline done 2026-07-26.
+**Still open:** scene-summary cards (not only inline markers), auto-watch pack sync (intentionally not done). N4 outline + C4 freeform board done 2026-07-26.
 
 ### D. Fountain craft & export
 
@@ -197,7 +198,7 @@ Sources sampled 2026-07-21 (non-exhaustive): Final Draft KB/blog (Beat Board, In
 ### Phase 2 — “cards + pipeline”
 - C1 index cards list + jump ✅ (2026-07-23)  
 - C6 Goal/Conflict/Turn template buttons ✅ partial  
-- C4 beat list (not freeform canvas) ✅ partial  
+- C4 freeform beat board ✅ (2026-07-26)  
 - P1 project folder seed files ✅ partial  
 - C7 full markdown card-pack exchange ✅ (2026-07-26)  
 - P3 empty cards from scenes ✅ · P4 Apply card→script ✅ partial  
@@ -206,7 +207,7 @@ Sources sampled 2026-07-21 (non-exhaustive): Final Draft KB/blog (Beat Board, In
 
 ### Phase 3 — “board + industry exchange”
 - C2 reorder ✅ (2026-07-24 Up/Down + drag-drop)  
-- C4/C5 beat board or outline lane  
+- C5 optional outline lane (C4 canvas covers spatial beats)  
 - F3 FDX  
 - R1/R3 revision lite  
 

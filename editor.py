@@ -597,44 +597,51 @@ class FountainEditor(QPlainTextEdit):
         cursor.endEditBlock()
         self.setTextCursor(cursor)
 
+    def list_beat_infos(self) -> list[cards_mod.BeatInfo]:
+        """Parse [[beat: …]] markers (label, note, scene, optional board x/y)."""
+        return cards_mod.list_beats_from_text(
+            self.toPlainText(),
+            self.is_scene_heading,
+        )
+
     def list_beats(self) -> list[tuple[int, str, str, str]]:
         """
-        Parse Fountain for [[beat: Type]] blocks and link to nearest scene.
-        Returns: [(block_number, beat_type, beat_text, scene_heading), ...]
-        
-        Handles:
-          - Nested brackets: [[beat: Act 1 Climax (Midpoint)]]
-          - Malformed beats: [[beat:Act1]] (no space after colon)
+        Compatibility tuples for packs / older UI:
+        [(block_number, beat_type, beat_text, scene_heading), ...]
+
+        Prefer list_beat_infos() for board coordinates (C4).
         """
-        beats: list[tuple[int, str, str, str]] = []
-        scene_heading = "Untitled Scene"
-        block = self.document().firstBlock()
-        while block.isValid():
-            text = block.text().strip()
-            if self.is_scene_heading(text):
-                scene_heading = text
-            elif text.startswith("[[beat:") and text.endswith("]]"):
-                # Beats are freeform labels: [[beat: Act 1 Climax]] keeps the full label.
-                # Optional body lives on the following non-marker line.
-                inner = text[len("[[beat:") : -2].strip()
-                beat_type = inner or "Beat"
-                beat_text = ""
+        return [
+            (b.block_number, b.label, b.beat_text, b.scene_heading)
+            for b in self.list_beat_infos()
+        ]
 
-                next_block = block.next()
-                if next_block.isValid():
-                    next_text = next_block.text().strip()
-                    if (
-                        next_text
-                        and not self.is_scene_heading(next_text)
-                        and not next_text.startswith("[[beat:")
-                        and not next_text.startswith("[[card:")
-                    ):
-                        beat_text = next_text
+    def set_beat_board_position(self, block_number: int, x: float, y: float) -> bool:
+        """Persist freeform board coords on the beat marker. Returns True if text changed."""
+        text = self.toPlainText()
+        new_text, changed = cards_mod.set_beat_position_in_text(
+            text, block_number, x, y
+        )
+        if changed and new_text != text:
+            self._replace_all_text(new_text)
+        return changed
 
-                # list display uses "{type}: {text}"; if no body, show label only once.
-                if not beat_text:
-                    beat_text = beat_type
+    def auto_layout_beats(self, cols: int = 3) -> int:
+        """Assign grid positions to all beats. Returns how many markers updated."""
+        infos = self.list_beat_infos()
+        if not infos:
+            return 0
+        layout = cards_mod.auto_layout_beat_positions(infos, cols=cols)
+        text = self.toPlainText()
+        n = 0
+        for bn, x, y in layout:
+            text, changed = cards_mod.set_beat_position_in_text(text, bn, x, y)
+            if changed:
+                n += 1
+        if n:
+            self._replace_all_text(text)
+        return n
 
-                beats.append((block.blockNumber(), beat_type, beat_text, scene_heading))
-            block = block.next()
-        return beats
+    def format_new_beat_marker(self, label: str = "Beat") -> str:
+        """Fresh [[beat: Label]] line (no coords until placed on the board)."""
+        return cards_mod.format_beat_marker(label)

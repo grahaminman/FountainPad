@@ -26,7 +26,7 @@ Traditional order: **File · Edit · View · Help**.
 | `cards.py` | Card parse/versions/apply/reorder + C7 markdown pack serialise/merge |
 | `navigator.py` | N4 outline tree (`#` sections + scenes) + filter + jump signal |
 | `cardnavigator.py` | Index cards list + editable detail + versions + reorder |
-| `beatboard.py` | Beat list (linear) + filter + jump — not freeform canvas |
+| `beatboard.py` | C4 freeform beat canvas (`[[beat: | x= | y=]]`) + filter + jump |
 | `preview.py` | `FountainPreview` (WebEngine) + `PreviewWindow` + `print_to_pdf` |
 | `resources/preview.html` | Offline HTML shell; JS API `setTheme` / `renderFountain` |
 | `resources/fountain.js` | Matt Daly parser (MIT) — treat as vendor |

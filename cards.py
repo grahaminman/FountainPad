@@ -330,6 +330,157 @@ def is_beat_line(text: str) -> bool:
     return bool(RE_BEAT_LINE.match(text or ""))
 
 
+@dataclass
+class BeatInfo:
+    """One [[beat: …]] marker with optional freeform board position (C4)."""
+
+    block_number: int
+    label: str
+    note: str
+    scene_heading: str
+    x: Optional[float] = None
+    y: Optional[float] = None
+
+    @property
+    def beat_type(self) -> str:
+        """Alias used by older list_beats / pack code."""
+        return self.label
+
+    @property
+    def beat_text(self) -> str:
+        return self.note or self.label
+
+
+def parse_beat_marker_inner(inner: str) -> Tuple[str, Optional[float], Optional[float]]:
+    """Parse beat marker payload after ``[[beat:``.
+
+    Forms:
+      ``Midpoint``
+      ``Midpoint | x=120 | y=40``
+      ``Act 1 Climax (Midpoint) | x=0 | y=10``
+    """
+    raw = (inner or "").strip()
+    if not raw:
+        return "Beat", None, None
+    parts = [p.strip() for p in raw.split("|")]
+    label = (parts[0] if parts else "Beat").strip() or "Beat"
+    x: Optional[float] = None
+    y: Optional[float] = None
+    for p in parts[1:]:
+        low = p.lower().replace(" ", "")
+        if low.startswith("x="):
+            try:
+                x = float(p.split("=", 1)[1].strip())
+            except ValueError:
+                pass
+        elif low.startswith("y="):
+            try:
+                y = float(p.split("=", 1)[1].strip())
+            except ValueError:
+                pass
+    return label, x, y
+
+
+def format_beat_marker(
+    label: str,
+    *,
+    x: Optional[float] = None,
+    y: Optional[float] = None,
+) -> str:
+    """Build a single [[beat: …]] line (no trailing newline)."""
+    lab = (label or "Beat").strip() or "Beat"
+    if x is None or y is None:
+        return f"[[beat: {lab}]]"
+    # Integer pixels keep markers tidy; still parse floats on read.
+    return f"[[beat: {lab} | x={int(round(x))} | y={int(round(y))}]]"
+
+
+def list_beats_from_text(
+    text: str,
+    is_scene_heading: Callable[[str], bool],
+) -> List[BeatInfo]:
+    """Document-order beats with optional board coordinates."""
+    lines = text.splitlines()
+    out: List[BeatInfo] = []
+    scene = "Untitled Scene"
+    for i, raw in enumerate(lines):
+        s = raw.strip()
+        if is_scene_heading(s):
+            scene = s
+            continue
+        m = RE_BEAT_LINE.match(raw)
+        if not m:
+            continue
+        label, x, y = parse_beat_marker_inner(m.group(1) or "")
+        note = ""
+        if i + 1 < len(lines):
+            nxt = lines[i + 1].strip()
+            if (
+                nxt
+                and not is_scene_heading(nxt)
+                and not is_beat_line(nxt)
+                and not is_card_line(nxt)
+            ):
+                note = nxt
+        out.append(
+            BeatInfo(
+                block_number=i,
+                label=label,
+                note=note or label,
+                scene_heading=scene,
+                x=x,
+                y=y,
+            )
+        )
+    return out
+
+
+def set_beat_position_in_text(
+    text: str,
+    block_number: int,
+    x: float,
+    y: float,
+) -> Tuple[str, bool]:
+    """Rewrite one beat marker's x/y. Returns (new_text, changed)."""
+    lines = text.splitlines()
+    if block_number < 0 or block_number >= len(lines):
+        return text, False
+    raw = lines[block_number]
+    m = RE_BEAT_LINE.match(raw)
+    if not m:
+        return text, False
+    label, _, _ = parse_beat_marker_inner(m.group(1) or "")
+    # Preserve leading whitespace on the line
+    lead = raw[: len(raw) - len(raw.lstrip())] if raw else ""
+    new_line = lead + format_beat_marker(label, x=x, y=y)
+    if new_line == raw:
+        return text, False
+    lines[block_number] = new_line
+    # Preserve whether original ended with newline
+    ending = "\n" if text.endswith("\n") else ""
+    return "\n".join(lines) + ending, True
+
+
+def auto_layout_beat_positions(
+    beats: List[BeatInfo],
+    *,
+    cols: int = 3,
+    origin_x: float = 24.0,
+    origin_y: float = 24.0,
+    cell_w: float = 168.0,
+    cell_h: float = 110.0,
+) -> List[Tuple[int, float, float]]:
+    """Grid layout in document order. Returns [(block_number, x, y), ...]."""
+    if cols < 1:
+        cols = 3
+    out: List[Tuple[int, float, float]] = []
+    for i, b in enumerate(beats):
+        col = i % cols
+        row = i // cols
+        out.append((b.block_number, origin_x + col * cell_w, origin_y + row * cell_h))
+    return out
+
+
 def _body_end(lines: List[str], start: int, is_scene_heading: Callable[[str], bool]) -> int:
     """End index of card body starting at *start* (line after marker).
 

@@ -200,6 +200,9 @@ class MainWindow(QMainWindow):
             self.reorder_card_scene_to_index
         )
         self.beat_board.beatActivated.connect(self._on_beat_activated)
+        self.beat_board.beatMoved.connect(self._on_beat_moved)
+        self.beat_board.layoutRequested.connect(self._layout_beats_grid)
+        self.beat_board.newBeatRequested.connect(self._insert_beat_template)
 
         # Debounce navigator rebuild while typing (cheap, but no need every keystroke).
         self._nav_refresh = QTimer(self)
@@ -1157,27 +1160,56 @@ class MainWindow(QMainWindow):
             self.beat_board.setVisible(False)
 
     def _refresh_beat_board(self) -> None:
-        beats = self.editor.list_beats()
-        self.beat_board.set_beats(beats)
+        # C4: freeform board uses BeatInfo (label/note/scene + optional x/y)
+        if hasattr(self.editor, "list_beat_infos"):
+            self.beat_board.set_beat_infos(self.editor.list_beat_infos())
+        else:
+            self.beat_board.set_beats(self.editor.list_beats())
         block_no = self.editor.textCursor().blockNumber()
-        if beats:
-            target_block = -1
-            for block_number, _, _, _ in beats:
-                if block_number <= block_no:
-                    target_block = block_number
-                else:
-                    break
-            if target_block >= 0:
-                for row in range(self.beat_board._list.count()):
-                    item = self.beat_board._list.item(row)
-                    if item and int(item.data(Qt.UserRole)) == target_block:
-                        self.beat_board._updating = True
-                        self.beat_board._list.setCurrentRow(row)
-                        self.beat_board._updating = False
+        self.beat_board.highlight_block(block_no)
 
     def _on_beat_activated(self, block_number: int) -> None:
         self.editor.goto_block(block_number)
         self._update_status()
+
+    def _on_beat_moved(self, block_number: int, x: float, y: float) -> None:
+        """Persist dragged beat card position onto the [[beat:]] marker."""
+        changed = self.editor.set_beat_board_position(block_number, x, y)
+        if changed:
+            self._dirty = True
+            self._update_title()
+            # Soft refresh — keep selection; avoid full rebuild thrash if possible
+            self._beats_refresh.start()
+            self.statusBar().showMessage(
+                f"Beat position saved ({int(x)}, {int(y)})", 1500
+            )
+
+    def _layout_beats_grid(self) -> None:
+        """Write grid x/y onto every beat marker (C4 Layout grid)."""
+        n = self.editor.auto_layout_beats(cols=3)
+        if n:
+            self._dirty = True
+            self._update_title()
+            self._refresh_beat_board()
+            self._sync_previews(immediate=True)
+            self.statusBar().showMessage(f"Laid out {n} beat(s) on grid", 2500)
+        else:
+            self.statusBar().showMessage("No beats to lay out", 2000)
+
+    def _insert_beat_template(self) -> None:
+        """Insert [[beat: Beat]] at cursor for the freeform board."""
+        stub = self.editor.format_new_beat_marker("Beat") + "\n"
+        cursor = self.editor.textCursor()
+        if cursor.positionInBlock() > 0 and not cursor.atBlockStart():
+            cursor.movePosition(cursor.MoveOperation.EndOfBlock)
+            cursor.insertText("\n")
+        cursor.insertText(stub)
+        self.editor.setTextCursor(cursor)
+        self.editor.setFocus(Qt.OtherFocusReason)
+        self._dirty = True
+        self._update_title()
+        self._refresh_beat_board()
+        self.statusBar().showMessage("Inserted beat marker", 2000)
 
     def _insert_card_template(self, card_type: str) -> None:
         """Insert a [[card: id=… | Type]] stub at the cursor and refresh the card list."""

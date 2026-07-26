@@ -12,7 +12,7 @@ Write plain-text `.fountain` on the left, see a properly formatted screenplay pr
 - Syntax highlighting for scene headings, character cues, dialogue, parentheticals, transitions, sections, notes, and title-page keys
 - **Outline navigator (N4)** — Fountain `#` / `##` sections + `INT.`/`EXT.` scenes in a tree; filter; click to jump (View → Show Scene Navigator)
 - **Index cards** *(partial, cards-first)* — type in the panel (auto-saves); multi-line labels; versions; **Apply → script** (action only, never dialogue); **Scene ↑/↓** or **drag** a card to move its whole scene; stable ids; cards/`@vN` stripped from preview/PDF
-- **Beat board (list)** *(partial)* — `[[beat: …]]` markers, filter, jump (View → Show Beat Board)
+- **Beat board (C4)** — freeform canvas of `[[beat: …]]` stickies; drag to place (`x=`/`y=` on marker); Layout grid; filter + jump
 - **Project folder** *(partial)* — File → Open Project Folder… seeds `canon.md` / `beats.md` / `cards.md` and loads `script.fountain` when present
 - **Card / beat packs (C7)** — File → Export/Import Card Pack (`cards.md`) and Beat Pack (`beats.md`); merge by card id / beat label; `.fountain` stays the screenplay source of truth
 - **Live split preview** (editor | formatted page) with 300ms debounce — show/hide independently
@@ -141,7 +141,7 @@ FountainPad/
 ├── editor.py            # Editor + highlighter + scene/card/beat helpers
 ├── navigator.py         # Scene navigator list + filter
 ├── cardnavigator.py     # Index cards list + Goal/Conflict/Turn templates
-├── beatboard.py         # Beat list (linear) + filter + jump
+├── beatboard.py         # C4 freeform beat canvas + filter + jump
 ├── preview.py           # QWebEngineView + fountain.js bridge + PDF export
 ├── mainwindow.py        # Menus, splitters, files, project folder, theme
 ├── _smoke_test.py       # Headless offscreen regression checks
