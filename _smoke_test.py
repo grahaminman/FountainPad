@@ -410,6 +410,79 @@ def main() -> int:
         assert (empty / "cards.md").exists()
         print("project folder seeds OK", empty)
 
+    # C7: markdown card/beat pack export + import (no file dialogs)
+    import cards as cards_mod
+
+    assert hasattr(w, "act_export_card_pack") and hasattr(w, "act_import_card_pack")
+    assert hasattr(w, "act_export_beat_pack") and hasattr(w, "act_import_beat_pack")
+    w.editor.setPlainText(
+        "INT. PACK - DAY\n\n"
+        "Keep dialogue.\n\n"
+        "HERO\n"
+        "Hello.\n\n"
+        "[[card: id=c777 | Goal]]\n"
+        "@v1\n"
+        "Old goal.\n"
+        "@v2\n"
+        "New goal.\n\n"
+        "[[beat: Midpoint]]\n"
+        "Sirens.\n"
+    )
+    w._dirty = False
+    infos_p = w.editor.list_card_infos()
+    assert infos_p and infos_p[0].card_id == "c777"
+    md_cards = cards_mod.cards_to_markdown_pack(infos_p)
+    assert "id=c777" in md_cards and "## Scene: INT. PACK - DAY" in md_cards
+    assert "@v2" in md_cards and "New goal." in md_cards
+    parsed_cards = cards_mod.parse_cards_markdown_pack(md_cards)
+    assert len(parsed_cards) == 1 and parsed_cards[0].card_id == "c777"
+    # External edit on pack → import updates body/active
+    parsed_cards[0].versions = [
+        cards_mod.CardVersion("v1", "Old goal."),
+        cards_mod.CardVersion("v2", "Imported goal."),
+    ]
+    parsed_cards[0].active_version = "v2"
+    # Also insert a brand-new card under same scene via pack
+    parsed_cards.append(
+        cards_mod.PackCard(
+            card_id="c778",
+            card_type="Turn",
+            active_version="v1",
+            versions=[cards_mod.CardVersion("v1", "The turn.")],
+            parent_scene="INT. PACK - DAY",
+        )
+    )
+    new_p, msg_p = cards_mod.merge_card_pack_into_text(
+        w.editor.toPlainText(), parsed_cards, w.editor.is_scene_heading
+    )
+    assert "Imported goal." in new_p
+    assert "id=c778" in new_p and "The turn." in new_p
+    assert "HERO" in new_p and "Hello." in new_p
+    assert "updated" in msg_p and "inserted" in msg_p
+    w.editor.setPlainText(new_p)
+    beats_md = cards_mod.beats_to_markdown_pack(w.editor.list_beats())
+    assert "[[beat: Midpoint]]" in beats_md
+    pbeats = cards_mod.parse_beats_markdown_pack(
+        beats_md + "\n[[beat: Climax]]\nBig finish.\n"
+    )
+    new_b, msg_b = cards_mod.merge_beat_pack_into_text(
+        w.editor.toPlainText(), pbeats, w.editor.is_scene_heading
+    )
+    assert "[[beat: Climax]]" in new_b and "Big finish." in new_b
+    assert "updated" in msg_b or "inserted" in msg_b
+    # Round-trip write via tempfile paths (export path helpers)
+    with tempfile.TemporaryDirectory() as td2:
+        pack_path = Path(td2) / "cards.md"
+        pack_path.write_text(md_cards, encoding="utf-8")
+        assert pack_path.read_text(encoding="utf-8").startswith("# Index Cards")
+        prev_path = w._path
+        w._path = Path(td2) / "script.fountain"
+        assert w._default_pack_path("cards.md").endswith("cards.md")
+        w._path = prev_path
+    guide_c7 = (ROOT / "resources/help/USER_GUIDE.md").read_text(encoding="utf-8")
+    assert "Export Card Pack" in guide_c7 and "C7" in guide_c7
+    print("C7 card/beat pack OK", msg_p, msg_b)
+
     # File → Close clears buffer without quitting
     w.editor.setPlainText("INT. TEMP - DAY\n\nHi.\n")
     w._dirty = False  # avoid save prompt in headless test

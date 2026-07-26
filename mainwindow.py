@@ -34,7 +34,8 @@ Persistence
   (org/app: FountainPad/FountainPad).
 
 File ops
-  New / Open / Open Project Folder / Save / Save As / Close / Export PDF / Quit.
+  New / Open / Open Project Folder / Save / Save As / Close / Export PDF /
+  Export/Import Card Pack (C7) / Export/Import Beat Pack / Quit.
   Close prompts to save if dirty, then clears to an empty untitled buffer
   (not the first-run sample).
 
@@ -257,6 +258,31 @@ class MainWindow(QMainWindow):
         self.act_export_pdf.setStatusTip("Export the formatted preview as a PDF")
         self.act_export_pdf.triggered.connect(self.export_pdf)
 
+        self.act_export_card_pack = QAction("Export &Card Pack…", self)
+        self.act_export_card_pack.setShortcut(QKeySequence("Ctrl+Shift+M"))
+        self.act_export_card_pack.setStatusTip(
+            "Write cards.md from the script's [[card:]] markers (C7)"
+        )
+        self.act_export_card_pack.triggered.connect(self.export_card_pack)
+
+        self.act_import_card_pack = QAction("Import C&ard Pack…", self)
+        self.act_import_card_pack.setStatusTip(
+            "Merge a cards.md pack into the script by card id (C7)"
+        )
+        self.act_import_card_pack.triggered.connect(self.import_card_pack)
+
+        self.act_export_beat_pack = QAction("Export &Beat Pack…", self)
+        self.act_export_beat_pack.setStatusTip(
+            "Write beats.md from the script's [[beat:]] markers (C7)"
+        )
+        self.act_export_beat_pack.triggered.connect(self.export_beat_pack)
+
+        self.act_import_beat_pack = QAction("Import B&eat Pack…", self)
+        self.act_import_beat_pack.setStatusTip(
+            "Merge a beats.md pack into the script by beat label (C7)"
+        )
+        self.act_import_beat_pack.triggered.connect(self.import_beat_pack)
+
         self.act_quit = QAction("&Quit", self)
         self.act_quit.setShortcut(QKeySequence.Quit)
         self.act_quit.setStatusTip("Quit FountainPad")
@@ -417,6 +443,11 @@ class MainWindow(QMainWindow):
         self.menu_file.addSeparator()
         self.menu_file.addAction(self.act_export_pdf)
         self.menu_file.addSeparator()
+        self.menu_file.addAction(self.act_export_card_pack)
+        self.menu_file.addAction(self.act_import_card_pack)
+        self.menu_file.addAction(self.act_export_beat_pack)
+        self.menu_file.addAction(self.act_import_beat_pack)
+        self.menu_file.addSeparator()
         self.menu_file.addAction(self.act_quit)
 
         self.menu_edit = self.menuBar().addMenu("&Edit")
@@ -528,7 +559,7 @@ class MainWindow(QMainWindow):
 
     def open_project(self) -> None:
         """Open a project folder and auto-load script.fountain if it exists.
-        
+
         Auto-creates missing Screenwriting OS files:
           - canon.md
           - beats.md
@@ -544,13 +575,17 @@ class MainWindow(QMainWindow):
         if not path:
             return
         project_dir = Path(path)
-        
+
         # Auto-create missing Screenwriting OS files.
         missing_files = []
         for name, template in [
             ("canon.md", "# Canon\n\nStory world, rules, lore."),
             ("beats.md", "# Beats\n\nMajor plot points."),
-            ("cards.md", "# Index Cards\n\n[[card: Goal]]\n[[card: Conflict]]\n[[card: Turn]]"),
+            (
+                "cards.md",
+                "# Index Cards\n\n"
+                "<!-- Seed only. Use File → Export/Import Card Pack for live sync. -->\n\n",
+            ),
         ]:
             file = project_dir / name
             if not file.exists():
@@ -563,7 +598,7 @@ class MainWindow(QMainWindow):
                         "File creation failed",
                         f"Could not create {name}:\n{exc}",
                     )
-        
+
         fountain_file = project_dir / "script.fountain"
         if fountain_file.exists():
             self._open_fountain_file(fountain_file)
@@ -572,6 +607,227 @@ class MainWindow(QMainWindow):
             if missing_files:
                 msg += f"\nAuto-created: {', '.join(missing_files)}"
             QMessageBox.information(self, "Project Opened", msg)
+
+    def _project_dir_for_packs(self) -> Path:
+        """Prefer the folder that holds the open .fountain; else home."""
+        if self._path is not None:
+            return self._path.parent
+        return Path.home()
+
+    def _default_pack_path(self, filename: str) -> str:
+        return str(self._project_dir_for_packs() / filename)
+
+    def export_card_pack(self) -> None:
+        """C7: write cards.md from current script card markers."""
+        import cards as cards_mod
+
+        # Flush pending card-panel typing so the pack matches the UI.
+        if hasattr(self.card_navigator, "flush_pending_save"):
+            try:
+                self.card_navigator.flush_pending_save()
+            except Exception:
+                pass
+
+        infos = self.editor.list_card_infos()
+        # Ensure ids so round-trips can merge by id.
+        if any(not (info.card_id or "").strip() for info in infos):
+            self.editor.ensure_card_ids()
+            infos = self.editor.list_card_infos()
+
+        md = cards_mod.cards_to_markdown_pack(infos)
+        path_str, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Card Pack",
+            self._default_pack_path("cards.md"),
+            "Markdown (*.md);;All files (*)",
+        )
+        if not path_str:
+            return
+        path = Path(path_str)
+        try:
+            path.write_text(md, encoding="utf-8")
+        except OSError as exc:
+            QMessageBox.critical(self, "Export Card Pack failed", str(exc))
+            return
+        n = len(infos)
+        self.statusBar().showMessage(
+            f"Exported card pack ({n} card{'s' if n != 1 else ''}): {path.name}",
+            5000,
+        )
+
+    def import_card_pack(self) -> None:
+        """C7: merge cards.md into the open script by card id."""
+        import cards as cards_mod
+
+        path_str, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Card Pack",
+            self._default_pack_path("cards.md"),
+            "Markdown (*.md);;All files (*)",
+        )
+        if not path_str:
+            return
+        path = Path(path_str)
+        try:
+            md = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            QMessageBox.critical(self, "Import Card Pack failed", str(exc))
+            return
+
+        pack_cards = cards_mod.parse_cards_markdown_pack(md)
+        if not pack_cards:
+            QMessageBox.information(
+                self,
+                "Import Card Pack",
+                "No [[card:]] blocks found in that file.",
+            )
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Import Card Pack",
+            (
+                f"Merge {len(pack_cards)} card(s) from {path.name} into the script?\n\n"
+                "• Matching id= updates the card body/versions in place.\n"
+                "• New ids are inserted under their ## Scene heading when found.\n"
+                "• Dialogue and non-card lines are not rewritten.\n\n"
+                "The .fountain file remains the screenplay source of truth."
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        if hasattr(self.card_navigator, "flush_pending_save"):
+            try:
+                self.card_navigator.flush_pending_save()
+            except Exception:
+                pass
+
+        new_text, msg = cards_mod.merge_card_pack_into_text(
+            self.editor.toPlainText(),
+            pack_cards,
+            self.editor.is_scene_heading,
+        )
+        if new_text == self.editor.toPlainText():
+            self.statusBar().showMessage(msg + " (no text change)", 5000)
+            return
+
+        self.editor.blockSignals(True)
+        cursor_pos = self.editor.textCursor().position()
+        self.editor.setPlainText(new_text)
+        # Best-effort caret restore
+        from PySide6.QtGui import QTextCursor
+
+        cur = self.editor.textCursor()
+        cur.setPosition(min(cursor_pos, len(new_text)))
+        self.editor.setTextCursor(cur)
+        self.editor.blockSignals(False)
+        self._dirty = True
+        self._sync_previews(immediate=True)
+        self._refresh_navigator()
+        self._refresh_card_navigator()
+        self._refresh_beat_board()
+        self._update_title()
+        self._update_status()
+        self.statusBar().showMessage(msg, 6000)
+
+    def export_beat_pack(self) -> None:
+        """C7: write beats.md from current script beat markers."""
+        import cards as cards_mod
+
+        beats = self.editor.list_beats()
+        md = cards_mod.beats_to_markdown_pack(beats)
+        path_str, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Beat Pack",
+            self._default_pack_path("beats.md"),
+            "Markdown (*.md);;All files (*)",
+        )
+        if not path_str:
+            return
+        path = Path(path_str)
+        try:
+            path.write_text(md, encoding="utf-8")
+        except OSError as exc:
+            QMessageBox.critical(self, "Export Beat Pack failed", str(exc))
+            return
+        n = len(beats)
+        self.statusBar().showMessage(
+            f"Exported beat pack ({n} beat{'s' if n != 1 else ''}): {path.name}",
+            5000,
+        )
+
+    def import_beat_pack(self) -> None:
+        """C7: merge beats.md into the open script by beat label."""
+        import cards as cards_mod
+
+        path_str, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Beat Pack",
+            self._default_pack_path("beats.md"),
+            "Markdown (*.md);;All files (*)",
+        )
+        if not path_str:
+            return
+        path = Path(path_str)
+        try:
+            md = path.read_text(encoding="utf-8")
+        except OSError as exc:
+            QMessageBox.critical(self, "Import Beat Pack failed", str(exc))
+            return
+
+        pack_beats = cards_mod.parse_beats_markdown_pack(md)
+        if not pack_beats:
+            QMessageBox.information(
+                self,
+                "Import Beat Pack",
+                "No [[beat:]] blocks found in that file.",
+            )
+            return
+
+        reply = QMessageBox.question(
+            self,
+            "Import Beat Pack",
+            (
+                f"Merge {len(pack_beats)} beat(s) from {path.name} into the script?\n\n"
+                "• Matching [[beat: Label]] updates the note line.\n"
+                "• New labels are inserted under their ## Scene heading when found.\n"
+                "• Scene action and dialogue are not rewritten."
+            ),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
+        new_text, msg = cards_mod.merge_beat_pack_into_text(
+            self.editor.toPlainText(),
+            pack_beats,
+            self.editor.is_scene_heading,
+        )
+        if new_text == self.editor.toPlainText():
+            self.statusBar().showMessage(msg + " (no text change)", 5000)
+            return
+
+        self.editor.blockSignals(True)
+        cursor_pos = self.editor.textCursor().position()
+        self.editor.setPlainText(new_text)
+        from PySide6.QtGui import QTextCursor
+
+        cur = self.editor.textCursor()
+        cur.setPosition(min(cursor_pos, len(new_text)))
+        self.editor.setTextCursor(cur)
+        self.editor.blockSignals(False)
+        self._dirty = True
+        self._sync_previews(immediate=True)
+        self._refresh_navigator()
+        self._refresh_card_navigator()
+        self._refresh_beat_board()
+        self._update_title()
+        self._update_status()
+        self.statusBar().showMessage(msg, 6000)
 
     def _open_fountain_file(self, path: Path) -> None:
         """Open a .fountain file and update UI."""

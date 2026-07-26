@@ -2,7 +2,7 @@
 
 **Audience:** anyone editing this codebase (including future-you / OpenClaw agents).  
 **Locale:** en_GB  
-**Updated:** 2026-07-23
+**Updated:** 2026-07-26
 
 ## What it is
 
@@ -21,10 +21,11 @@ Traditional order: **File · Edit · View · Help**.
 | File | Role |
 |---|---|
 | `main.py` | Entry; set OpenGL-share attr → `QApplication` → `MainWindow` |
-| `mainwindow.py` | Shell: menus, splitters, file ops, preview modes, PDF, project folder, settings |
+| `mainwindow.py` | Shell: menus, splitters, file ops, preview modes, PDF, project folder, C7 pack export/import, settings |
 | `editor.py` | `FountainEditor` + `FountainHighlighter` + scene / `list_cards` / `list_beats` helpers |
+| `cards.py` | Card parse/versions/apply/reorder + C7 markdown pack serialise/merge |
 | `navigator.py` | Scene list + filter + jump signal |
-| `cardnavigator.py` | Index cards list + Goal/Conflict/Turn template buttons + jump |
+| `cardnavigator.py` | Index cards list + editable detail + versions + reorder |
 | `beatboard.py` | Beat list (linear) + filter + jump — not freeform canvas |
 | `preview.py` | `FountainPreview` (WebEngine) + `PreviewWindow` + `print_to_pdf` |
 | `resources/preview.html` | Offline HTML shell; JS API `setTheme` / `renderFountain` |
@@ -64,6 +65,7 @@ Both previews stay content-synced via `MainWindow._sync_previews()`.
 - **Open / Save / Save As:** UTF-8 `.fountain`
 - **Close:** prompt if dirty → empty untitled buffer (does not quit)
 - **Quit / window close:** prompt if dirty → save settings → close detach
+- **C7 packs:** File → Export/Import Card Pack (`cards.md`) and Beat Pack (`beats.md`). Script stays SoT; merge by card id / beat label.
 
 Dirty flag: any editor `contentChanged` after load/save/new/close.
 

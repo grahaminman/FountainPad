@@ -68,6 +68,7 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 - [x] Phase C first cut: card scene Up/Down reorder (2026-07-24)
 - [x] Card panel UX: auto-save typing, multi-row buttons, multi-line wrap labels, strip cards/@vN from preview+PDF (2026-07-24)
 - [x] Phase C2: drag-drop card list reorders whole scene (absolute scene index; 2026-07-24)
+- [x] C7 markdown card/beat pack export+import (2026-07-26)
 - [ ] Keep USER_GUIDE honest as cards/beats/project mature
 
 ### A. Distribution & trust (product)
@@ -99,11 +100,12 @@ AI factory (OpenClaw)   → open folder, watch files, send slice to agent, accep
 | C4 | **Beat board** (freeform canvas) | Beats not 1:1 scenes; link beat → scene(s) | **Partial 2026-07-23** — linear list of `[[beat: …]]` + jump (not freeform canvas) |
 | C5 | Outline lane (linear) | Horizontal/vertical sequence of beats; lighter than full board | FD Outline Editor — list UI is a first step via C4 partial |
 | C6 | Card templates | Goal / conflict / turn / image / “must hit” fields | **Partial** — Goal/Conflict/Turn + stable ids (2026-07-24) |
-| C7 | Import/export cards as Markdown | Matches OpenClaw `cards/` folder grammar | **Partial 2026-07-23** — project folder seeds `cards.md`; full bidirectional pack still open |
+| C7 | Import/export cards as Markdown | Matches OpenClaw `cards/` folder grammar | **DONE 2026-07-26** — File → Export/Import Card Pack + Beat Pack; merge by id/label; `.fountain` remains SoT |
 | C8 | Mind-map lite | Optional links between cards — don’t boil ocean v1 | WriterDuet |
 
 **Shipped v1 cards (2026-07-23 evening):** C1 list + jump, C6 template buttons, C4-as-list beats, project folder seeds (`canon.md` / `beats.md` / `cards.md`).  
-**Still open:** true freeform C4, rich C7 markdown pack sync, scene-summary cards (not only inline markers).
+**C7 done (2026-07-26):** export/import `cards.md` + `beats.md` (explicit File menu; merge by card id / beat label).  
+**Still open:** true freeform C4, scene-summary cards (not only inline markers), auto-watch pack sync (intentionally not done).
 
 ### D. Fountain craft & export
 

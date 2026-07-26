@@ -14,6 +14,7 @@ Write plain-text `.fountain` on the left, see a properly formatted screenplay pr
 - **Index cards** *(partial, cards-first)* — type in the panel (auto-saves); multi-line labels; versions; **Apply → script** (action only, never dialogue); **Scene ↑/↓** or **drag** a card to move its whole scene; stable ids; cards/`@vN` stripped from preview/PDF
 - **Beat board (list)** *(partial)* — `[[beat: …]]` markers, filter, jump (View → Show Beat Board)
 - **Project folder** *(partial)* — File → Open Project Folder… seeds `canon.md` / `beats.md` / `cards.md` and loads `script.fountain` when present
+- **Card / beat packs (C7)** — File → Export/Import Card Pack (`cards.md`) and Beat Pack (`beats.md`); merge by card id / beat label; `.fountain` stays the screenplay source of truth
 - **Live split preview** (editor | formatted page) with 300ms debounce — show/hide independently
 - **Detach / reattach preview** — floating window plus in-window split; Reattach restores split
 - **Export PDF** from the formatted preview (File → Export PDF…); Fountain `[[notes]]` hidden in print CSS
@@ -110,6 +111,7 @@ Exact package names vary by distro; PySide6 wheels bundle most of Qt.
 | Ctrl/Cmd+S | Save |
 | Ctrl/Cmd+Shift+S | Save As |
 | Ctrl/Cmd+Shift+E | Export PDF |
+| Ctrl/Cmd+Shift+M | Export Card Pack |
 | Ctrl/Cmd+Shift+O | Open project folder |
 | Ctrl/Cmd+\\ | Toggle scene navigator |
 | Ctrl/Cmd+Shift+C | Toggle index cards |

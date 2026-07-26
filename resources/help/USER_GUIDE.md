@@ -1,6 +1,6 @@
 # FountainPad — User Guide
 
-**Last updated:** 2026-07-24 (card drag-drop scene reorder)  
+**Last updated:** 2026-07-26 (C7 markdown card/beat pack sync)  
 **Audience:** someone using the app (not building it)  
 **Honesty rule:** features marked **Partial** work today but are not finished products. If something feels unclear, that is a real UX signal — this guide should explain what to expect.
 
@@ -42,10 +42,14 @@ There is also an optional **floating preview window** (detached).
 |---|---|
 | **New** | Starts a new screenplay. First launch / New may show a short sample; after **Close**, New is an empty untitled buffer (you will be asked to save if the current file is dirty). |
 | **Open…** | Open a `.fountain` (or text) file. |
-| **Open Project Folder…** | **Partial.** Choose a folder. FountainPad creates missing `canon.md`, `beats.md`, and `cards.md` starter files, and opens `script.fountain` if that file exists. This is *not* a full multi-document binder yet — those markdown files are not edited inside the app in a special UI. |
+| **Open Project Folder…** | **Partial.** Choose a folder. FountainPad creates missing `canon.md`, `beats.md`, and `cards.md` starter files, and opens `script.fountain` if that file exists. This is *not* a full multi-document binder yet. Use **Export/Import Card Pack** (and Beat Pack) to sync those markdown files with the script. |
 | **Close** | Closes the current buffer (save prompt if needed). Does **not** quit the app. Leaves an empty untitled document. |
 | **Save** / **Save As…** | Save the current editor text as UTF-8 `.fountain`. |
 | **Export PDF…** | Exports the **formatted preview** as a PDF (Letter). Forces a light print look for readability. Fountain `[[notes]]` are hidden in the PDF via print CSS. |
+| **Export Card Pack…** | **C7.** Writes a `cards.md` markdown pack from every `[[card:]]` in the script (ids, types, versions, scene groups). Default path is beside the open `.fountain`. Shortcut: Ctrl/Cmd+Shift+M. |
+| **Import Card Pack…** | **C7.** Merges a `cards.md` pack into the open script: matching `id=` updates the card body/versions; new ids insert under their `## Scene:` heading when that scene exists. Dialogue is not rewritten. Confirm first. |
+| **Export Beat Pack…** | **C7.** Writes `beats.md` from `[[beat:]]` markers. |
+| **Import Beat Pack…** | **C7.** Merges `beats.md` by beat label (update note or insert). Confirm first. |
 | **Quit** | Exit the app (save prompt if dirty). |
 
 ### Edit
@@ -158,9 +162,9 @@ If the split preview is hidden, the editor uses full width (word wrap off for lo
 
 ### What is *not* finished
 
-- No separate visual corkboard; storage is still inside the Fountain file.
+- No separate visual corkboard; live planning storage is still inside the Fountain file (markdown packs are an export/import bridge).
 - Apply does not rewrite dialogue (by design) and does not replace a whole scene body.
-- Project `cards.md` is still only a seed file (not live pack sync).
+- Pack sync is **explicit** (File menu) — not auto-watch / silent background sync.
 - Version UI is primitive (no timestamps/authors).
 
 ### How you are meant to use it (for now) — cards first
@@ -196,11 +200,54 @@ These are **notes toward the draft**, not instructions the script must obey.
 
 - Not a spatial / drag canvas (Final Draft Beat Board style).
 - No linking UI from beat → multiple scenes beyond “nearest scene above marker”.
-- Project `beats.md` is a seed file only.
+- Beat pack sync is label-based (not stable beat ids yet).
 
 ### How you are meant to use it (for now)
 
-Mark major plot turns in the script text and jump via the list. Expect a richer board later if we build one.
+Mark major plot turns in the script text and jump via the list. Use **Export/Import Beat Pack** when you want a `beats.md` file beside the project. Expect a richer board later if we build one.
+
+---
+
+## Card & beat packs (C7)
+
+**Status:** Available (explicit export/import)
+
+The **screenplay source of truth** is still the `.fountain` file. Markdown packs are a portable bridge for notes, OpenClaw folders, and git diffs.
+
+### Card pack (`cards.md`)
+
+**File → Export Card Pack…** writes something like:
+
+```markdown
+# Index Cards
+
+## Scene: INT. BAY - NIGHT
+
+[[card: id=c001 | Goal | active=v2]]
+@v1
+Old plan.
+@v2
+Driver checks the seal.
+```
+
+**File → Import Card Pack…**
+
+1. Opens a `.md` file (defaults to `cards.md` next to the script).
+2. Asks before merging.
+3. Updates cards with the same `id=`; inserts new ones under the matching scene when possible.
+4. Does **not** rewrite dialogue or non-card action.
+
+### Beat pack (`beats.md`)
+
+Same idea for `[[beat: Label]]` markers — export the list, edit in markdown if you like, import to update notes or add labels.
+
+### How to use it
+
+1. Plan in the Index Cards panel (or in the script).  
+2. **Export Card Pack** when you want a markdown snapshot beside the project.  
+3. Edit `cards.md` externally if needed (keep the `[[card: id=…]]` markers).  
+4. **Import Card Pack** to pull changes back.  
+5. Still **Save** the `.fountain` to keep the draft.
 
 ---
 
@@ -214,15 +261,15 @@ Mark major plot turns in the script text and jump via the list. Expect a richer 
 2. If missing, FountainPad creates:
 
    - `canon.md` — story world / rules notes  
-   - `beats.md` — beat notes  
-   - `cards.md` — card notes  
+   - `beats.md` — beat notes (seed; use Export/Import Beat Pack for live content)  
+   - `cards.md` — card notes (seed; use Export/Import Card Pack for live content)  
    - and opens `script.fountain` **if it already exists**
 
 3. If there is no `script.fountain`, you get a message that the folder was opened / seeded — you still work in the editor as a normal Fountain file until you create/open one.
 
-**Not yet:** multi-tab binder, editing canon/beats/cards as docked documents, auto-sync between panel cards and `cards.md`.
+**Not yet:** multi-tab binder, docked editors for canon/beats/cards, or auto-watch sync on every keystroke.
 
-**How to use it now:** a convenient folder convention aligned with a future screenwriting workflow — keep notes beside the script on disk.
+**How to use it now:** folder convention for a screenwriting project; keep the draft in `script.fountain` and sync packs on purpose via the File menu.
 
 ---
 
@@ -266,6 +313,8 @@ Mark major plot turns in the script text and jump via the list. Expect a richer 
 | Ctrl/Cmd+S | Save |
 | Ctrl/Cmd+Shift+S | Save As |
 | Ctrl/Cmd+Shift+E | Export PDF |
+| Ctrl/Cmd+Shift+M | Export Card Pack |
+| — | Import Card Pack / Export·Import Beat Pack (File menu) |
 | Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z (platform) | Undo / Redo |
 | Ctrl/Cmd+X / C / V | Cut / Copy / Paste |
 | Ctrl/Cmd+A | Select All |

@@ -1017,6 +1017,434 @@ def reorder_card_scene_to_scene_index(
     return reorder_card_scene_steps(text, card_block, steps, is_scene_heading)
 
 
+# --- C7: markdown pack (cards.md / beats.md) ---------------------------------
+
+PACK_CARDS_TITLE = "# Index Cards"
+PACK_BEATS_TITLE = "# Beats"
+PACK_CARDS_INTRO = (
+    "<!-- FountainPad card pack (C7). The .fountain file stays the screenplay source of truth.\n"
+    "     File → Export Card Pack writes this from the script.\n"
+    "     File → Import Card Pack merges [[card:]] blocks back by id. -->"
+)
+PACK_BEATS_INTRO = (
+    "<!-- FountainPad beat pack (C7). Planning labels only — not the screenplay.\n"
+    "     File → Export Beat Pack / Import Beat Pack. -->"
+)
+RE_PACK_SCENE = re.compile(r"^##\s+Scene:\s*(.+?)\s*$", re.IGNORECASE)
+RE_PACK_HTML_SCENE = re.compile(
+    r"<!--\s*scene:\s*(.+?)\s*-->", re.IGNORECASE
+)
+
+
+@dataclass
+class PackCard:
+    """One card entry parsed from a markdown pack (no block_number yet)."""
+
+    card_id: str
+    card_type: str
+    active_version: str
+    versions: List[CardVersion]
+    parent_scene: str = ""
+    body: str = ""
+
+    @property
+    def active_text(self) -> str:
+        if not self.versions:
+            return (self.body or "").strip()
+        for v in self.versions:
+            if v.version_id == self.active_version:
+                return (v.text or "").strip()
+        return (self.versions[-1].text or "").strip()
+
+
+@dataclass
+class PackBeat:
+    """One beat entry from a markdown pack."""
+
+    beat_type: str
+    beat_text: str
+    parent_scene: str = ""
+
+
+def cards_to_markdown_pack(
+    cards: List[CardInfo],
+    *,
+    title: str = PACK_CARDS_TITLE,
+) -> str:
+    """Serialise script cards to cards.md (Fountain marker grammar + scene headings)."""
+    lines: List[str] = [title, "", PACK_CARDS_INTRO, ""]
+    if not cards:
+        lines.append("_No cards in the script yet._")
+        lines.append("")
+        return "\n".join(lines)
+
+    last_scene: Optional[str] = object()  # type: ignore[assignment]
+    for info in cards:
+        scene = (info.scene_heading or "").strip() or "Untitled Scene"
+        if scene != last_scene:
+            lines.append(f"## Scene: {scene}")
+            lines.append("")
+            last_scene = scene
+        cid = (info.card_id or "").strip()
+        ctype = (info.card_type or "Note").strip() or "Note"
+        active = _norm_ver(info.active_version or "v1")
+        versions = list(info.versions) if info.versions else [CardVersion("v1", info.body or "")]
+        multi = len(versions) > 1
+        lines.append(
+            format_card_marker(cid, ctype, active=active, multi_version=multi)
+        )
+        body_out = format_versions_body(versions, active)
+        if body_out:
+            lines.extend(body_out.split("\n"))
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def parse_cards_markdown_pack(text: str) -> List[PackCard]:
+    """Parse cards.md (or any markdown holding [[card:]] blocks)."""
+    raw = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    plain = raw.split("\n")
+    out: List[PackCard] = []
+    parent_scene = ""
+    i = 0
+    while i < len(plain):
+        line = plain[i]
+        stripped = line.strip()
+        sm = RE_PACK_SCENE.match(stripped)
+        if sm:
+            parent_scene = sm.group(1).strip()
+            i += 1
+            continue
+        hm = RE_PACK_HTML_SCENE.search(stripped)
+        if hm and stripped.startswith("<!--"):
+            parent_scene = hm.group(1).strip()
+            i += 1
+            continue
+        m = RE_CARD_LINE.match(line)
+        if not m:
+            i += 1
+            continue
+        card_id, card_type, inline, active_hint = parse_card_inner(m.group(1))
+        j = _body_end(plain, i + 1, looks_like_scene)
+        body_lines: List[str] = []
+        if inline:
+            body_lines.append(inline)
+        for k in range(i + 1, j):
+            body_lines.append(plain[k].rstrip("\n"))
+        while body_lines and not body_lines[0].strip():
+            body_lines.pop(0)
+        while body_lines and not body_lines[-1].strip():
+            body_lines.pop()
+        body = "\n".join(body_lines).strip()
+        active, versions = parse_versions(body, active_hint)
+        out.append(
+            PackCard(
+                card_id=card_id,
+                card_type=card_type or "Note",
+                active_version=active,
+                versions=versions,
+                parent_scene=parent_scene,
+                body=body,
+            )
+        )
+        i = j
+    return out
+
+
+def beats_to_markdown_pack(
+    beats: List[Tuple[int, str, str, str]],
+    *,
+    title: str = PACK_BEATS_TITLE,
+) -> str:
+    """Serialise [[beat:]] list tuples to beats.md."""
+    lines: List[str] = [title, "", PACK_BEATS_INTRO, ""]
+    if not beats:
+        lines.append("_No beats in the script yet._")
+        lines.append("")
+        return "\n".join(lines)
+    last_scene: Optional[str] = object()  # type: ignore[assignment]
+    for _bn, beat_type, beat_text, scene_heading in beats:
+        scene = (scene_heading or "").strip() or "Untitled Scene"
+        if scene != last_scene:
+            lines.append(f"## Scene: {scene}")
+            lines.append("")
+            last_scene = scene
+        label = (beat_type or "Beat").strip() or "Beat"
+        lines.append(f"[[beat: {label}]]")
+        note = (beat_text or "").strip()
+        if note and note != label:
+            lines.append(note)
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def parse_beats_markdown_pack(text: str) -> List[PackBeat]:
+    """Parse beats.md holding [[beat:]] markers."""
+    raw = (text or "").replace("\r\n", "\n").replace("\r", "\n")
+    plain = raw.split("\n")
+    out: List[PackBeat] = []
+    parent_scene = ""
+    i = 0
+    while i < len(plain):
+        line = plain[i]
+        stripped = line.strip()
+        sm = RE_PACK_SCENE.match(stripped)
+        if sm:
+            parent_scene = sm.group(1).strip()
+            i += 1
+            continue
+        hm = RE_PACK_HTML_SCENE.search(stripped)
+        if hm and stripped.startswith("<!--"):
+            parent_scene = hm.group(1).strip()
+            i += 1
+            continue
+        if not (stripped.startswith("[[beat:") and stripped.endswith("]]")):
+            i += 1
+            continue
+        inner = stripped[len("[[beat:") : -2].strip()
+        beat_type = inner or "Beat"
+        note = ""
+        j = i + 1
+        while j < len(plain):
+            nxt = plain[j].strip()
+            if not nxt:
+                break
+            if nxt.startswith("[[beat:") or nxt.startswith("[[card:"):
+                break
+            if RE_PACK_SCENE.match(nxt) or nxt.startswith("#"):
+                break
+            note = nxt
+            j += 1
+            break
+        out.append(
+            PackBeat(beat_type=beat_type, beat_text=note or beat_type, parent_scene=parent_scene)
+        )
+        i = j if note else i + 1
+    return out
+
+
+def _find_scene_line(
+    lines: List[str],
+    scene_heading: str,
+    is_scene_heading: Callable[[str], bool],
+) -> int:
+    want = (scene_heading or "").strip()
+    if not want:
+        return -1
+    starts = _real_scene_starts(lines, is_scene_heading)
+    for s in starts:
+        if lines[s].strip() == want:
+            return s
+        # soft match: ignore trailing whitespace / case on INT./EXT. prefix only
+        if lines[s].strip().upper() == want.upper():
+            return s
+    return -1
+
+
+def _scene_insert_point(
+    lines: List[str],
+    scene_block: int,
+    is_scene_heading: Callable[[str], bool],
+) -> int:
+    """Line index just after heading (+ following blanks) to insert a new card."""
+    if scene_block < 0 or scene_block >= len(lines):
+        return len(lines)
+    j = scene_block + 1
+    while j < len(lines) and not lines[j].strip():
+        j += 1
+    return j
+
+
+def merge_card_pack_into_text(
+    text: str,
+    pack_cards: List[PackCard],
+    is_scene_heading: Callable[[str], bool],
+    *,
+    ensure_ids: bool = True,
+) -> Tuple[str, str]:
+    """
+    Merge pack cards into Fountain text.
+
+    - Matching ``id=`` → update marker + body/versions in place.
+    - New / unknown id → insert under parent scene (if found) or append at end.
+    - Script pages (dialogue etc.) outside card blocks are left alone.
+    """
+    if not pack_cards:
+        return text, "Pack has no cards."
+
+    work = text
+    if ensure_ids:
+        work, _ = ensure_ids_in_text(work, is_scene_heading)
+
+    updated = 0
+    inserted = 0
+    skipped = 0
+
+    for pc in pack_cards:
+        versions = list(pc.versions) if pc.versions else [CardVersion("v1", pc.body or "")]
+        active = _norm_ver(pc.active_version or "v1")
+        ctype = (pc.card_type or "Note").strip() or "Note"
+        cid = (pc.card_id or "").strip()
+
+        infos = list_cards_from_text(work, is_scene_heading)
+        existing_ids = {c.card_id for c in infos if c.card_id}
+
+        match = None
+        if cid:
+            match = next((c for c in infos if c.card_id == cid), None)
+
+        if match is not None:
+            work, _msg = write_card_block(
+                work,
+                match.block_number,
+                cid or match.card_id,
+                ctype,
+                versions,
+                active,
+                is_scene_heading,
+            )
+            updated += 1
+            continue
+
+        # Insert new card
+        if not cid:
+            cid = next_card_id(existing_ids)
+        elif cid in existing_ids:
+            # Should not happen if match failed — assign fresh
+            cid = next_card_id(existing_ids)
+
+        multi = len(versions) > 1
+        marker = format_card_marker(cid, ctype, active=active, multi_version=multi)
+        body_out = format_versions_body(versions, active)
+        block_lines = [marker]
+        if body_out:
+            block_lines.extend(body_out.split("\n"))
+        block_lines.append("")
+
+        plain = work.splitlines()
+        ends_with_nl = work.endswith("\n")
+        insert_at = len(plain)
+        parent = (pc.parent_scene or "").strip()
+        if parent:
+            sline = _find_scene_line(plain, parent, is_scene_heading)
+            if sline >= 0:
+                insert_at = _scene_insert_point(plain, sline, is_scene_heading)
+            else:
+                # Create scene heading then card under it
+                tail: List[str] = []
+                if plain and plain[-1].strip():
+                    tail.append("")
+                tail.append(parent)
+                tail.append("")
+                plain = plain + tail
+                insert_at = len(plain)
+                skipped += 0  # scene created — still an insert
+
+        # Keep a blank line before insert when needed
+        prefix_blank = insert_at > 0 and insert_at <= len(plain) and plain[insert_at - 1].strip()
+        chunk = list(block_lines)
+        if prefix_blank:
+            chunk = [""] + chunk
+        plain = plain[:insert_at] + chunk + plain[insert_at:]
+        work = "\n".join(plain)
+        if ends_with_nl and not work.endswith("\n"):
+            work += "\n"
+        inserted += 1
+
+    work, _ = ensure_ids_in_text(work, is_scene_heading)
+    parts = []
+    if updated:
+        parts.append(f"updated {updated}")
+    if inserted:
+        parts.append(f"inserted {inserted}")
+    if not parts:
+        parts.append("no changes")
+    return work, "Card pack import: " + ", ".join(parts)
+
+
+def merge_beat_pack_into_text(
+    text: str,
+    pack_beats: List[PackBeat],
+    is_scene_heading: Callable[[str], bool],
+) -> Tuple[str, str]:
+    """
+    Merge beat pack into Fountain text.
+
+    - If a [[beat: Label]] with the same label already exists, update its note line.
+    - Else insert under parent scene or append.
+    """
+    if not pack_beats:
+        return text, "Pack has no beats."
+
+    plain = text.splitlines()
+    ends_with_nl = text.endswith("\n")
+    updated = 0
+    inserted = 0
+
+    def find_beat(label: str) -> int:
+        want = (label or "").strip().lower()
+        for i, ln in enumerate(plain):
+            s = ln.strip()
+            if s.startswith("[[beat:") and s.endswith("]]"):
+                inner = s[len("[[beat:") : -2].strip().lower()
+                if inner == want:
+                    return i
+        return -1
+
+    for pb in pack_beats:
+        label = (pb.beat_type or "Beat").strip() or "Beat"
+        note = (pb.beat_text or "").strip()
+        if note == label:
+            note = ""
+        idx = find_beat(label)
+        if idx >= 0:
+            # Replace optional single note line after marker
+            j = idx + 1
+            if j < len(plain) and plain[j].strip() and not plain[j].strip().startswith("[["):
+                if note:
+                    plain[j] = note
+                else:
+                    del plain[j]
+            elif note:
+                plain.insert(j, note)
+            plain[idx] = f"[[beat: {label}]]"
+            updated += 1
+            continue
+
+        block = [f"[[beat: {label}]]"]
+        if note:
+            block.append(note)
+        block.append("")
+        insert_at = len(plain)
+        parent = (pb.parent_scene or "").strip()
+        if parent:
+            sline = _find_scene_line(plain, parent, is_scene_heading)
+            if sline >= 0:
+                insert_at = _scene_insert_point(plain, sline, is_scene_heading)
+            else:
+                if plain and plain[-1].strip():
+                    plain.append("")
+                plain.append(parent)
+                plain.append("")
+                insert_at = len(plain)
+        if insert_at > 0 and insert_at <= len(plain) and plain[insert_at - 1].strip():
+            block = [""] + block
+        plain = plain[:insert_at] + block + plain[insert_at:]
+        inserted += 1
+
+    work = "\n".join(plain)
+    if ends_with_nl and not work.endswith("\n"):
+        work += "\n"
+    parts = []
+    if updated:
+        parts.append(f"updated {updated}")
+    if inserted:
+        parts.append(f"inserted {inserted}")
+    if not parts:
+        parts.append("no changes")
+    return work, "Beat pack import: " + ", ".join(parts)
+
+
 def strip_cards_for_preview(
     text: str,
     is_scene_heading: Callable[[str], bool],
